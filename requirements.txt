@@ -1,0 +1,7 @@
+sounddevice>=0.5.0
+soundfile>=0.12.0
+numpy>=1.26.0
+mutagen>=1.47.0
+requests>=2.31.0
+pyqt6>=6.5.0
+
