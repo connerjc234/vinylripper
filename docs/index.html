@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VinylRipper — Digitize Your Vinyl Collection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      /* Chassis & surfaces */
+      --chassis-dark: #0e0e10;
+      --chassis: #121214;
+      --chassis-light: #1a1a1e;
+      
+      /* Brushed silver */
+      --silver-dark: #8a93a0;
+      --silver: #c7ccd4;
+      --silver-light: #e7ecf3;
+      --silver-highlight: #f4f7fb;
+      
+      /* Amber accents (LED style) */
+      --amber: #f2b745;
+      --amber-dim: #b88a38;
+      --amber-glow: rgba(242, 183, 69, 0.15);
+      --amber-glow-strong: rgba(242, 183, 69, 0.25);
+      
+      /* Text */
+      --text: #e9eef5;
+      --text-dim: #a8b2c1;
+      --text-muted: #6b7280;
+      
+      /* Spacing & radius */
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--chassis-dark);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      cursor: none; /* Custom cursor */
+    }
+
+    /* ─── Custom Cursor ─── */
+    .cursor {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: var(--silver-light);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s;
+      mix-blend-mode: difference;
+    }
+
+    .cursor.hover {
+      width: 24px;
+      height: 24px;
+      background: transparent;
+      border: 2px solid var(--amber);
+      border-radius: 50%;
+    }
+
+    /* ─── Noise overlay ─── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+    }
+
+    /* ─── Navigation ─── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(14,14,16,0.92) 70%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+
+    nav.scrolled {
+      border-bottom: 1px solid var(--silver-dark);
+    }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--silver-light);
+      letter-spacing: 0.03em;
+    }
+
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--silver-dark);
+      border-radius: 6px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.25s;
+      background: linear-gradient(180deg, var(--chassis-light) 0%, var(--chassis) 100%);
+    }
+
+    .nav-gh:hover {
+      border-color: var(--silver-light);
+      color: var(--text);
+      box-shadow: 0 0 16px var(--amber-glow);
+    }
+
+    .nav-gh svg { width: 18px; height: 18px; }
+
+    /* ─── Hero ─── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient glow behind hero */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 900px; height: 900px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, var(--amber-glow) 0%, transparent 70%);
+      pointer-events: none;
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); }
+    }
+
+    /* Turntable container */
+    .turntable {
+      width: 280px;
+      height: 280px;
+      margin-bottom: 40px;
+      position: relative;
+      perspective: 1000px;
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease;
+    }
+
+    /* Turntable hover effects - only when hovering the turntable itself */
+    .turntable:hover {
+      transform: rotateX(8deg) translateY(-4px);
+    }
+
+    .turntable:hover .record {
+      animation-play-state: paused;
+    }
+
+    .turntable:hover .tonearm {
+      transform: rotate(-15deg) translateY(-8px);
+    }
+
+    .turntable:hover .power-led {
+      animation: ledDim 2s ease-in-out infinite;
+    }
+
+    /* Platter (brushed silver base) */
+    .platter {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--silver-dark) 0%, var(--silver) 50%, var(--silver-dark) 100%);
+      box-shadow: 
+        0 8px 32px rgba(0,0,0,0.4),
+        inset 0 2px 8px rgba(255,255,255,0.1);
+    }
+
+    /* Vinyl record */
+    .record {
+      position: absolute;
+      top: 5%; left: 5%;
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      background: radial-gradient(circle, #1a1a1a 0%, #0a0a0a 70%, #151515 100%);
+      box-shadow: 
+        0 4px 16px rgba(0,0,0,0.6),
+        inset 0 0 0 2px rgba(255,255,255,0.03);
+      overflow: hidden;
+      animation: spin 8s linear infinite;
+      transform-origin: center;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Record grooves (subtle concentric circles) */
+    .record::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: repeating-radial-gradient(
+        circle,
+        transparent 0,
+        transparent 2px,
+        rgba(255,255,255,0.02) 2px,
+        rgba(255,255,255,0.02) 4px
+      );
+      pointer-events: none;
+    }
+
+    /* Record label (center) */
+    .record-label {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--amber) 0%, #d4952a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 
+        0 0 0 2px rgba(0,0,0,0.3),
+        0 0 16px var(--amber-glow);
+      overflow: hidden;
+    }
+
+    .record-label::before {
+      content: '';
+      position: absolute;
+      width: 8%;
+      height: 8%;
+      border-radius: 50%;
+      background: var(--chassis-dark);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .record-label-text {
+      position: absolute;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 0.55rem;
+      color: var(--chassis-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      top: 35%;
+      text-align: center;
+      width: 100%;
+    }
+
+    /* Tonearm */
+    .tonearm {
+      position: absolute;
+      top: 15px;
+      right: 30px;
+      width: 90px;
+      height: 130px;
+      transform-origin: top right;
+      transform: rotate(8deg);
+      transition: transform 0.4s ease;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .turntable:hover .tonearm {
+      transform: rotate(2deg) translateY(-5px);
+    }
+
+    .tonearm-base {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--silver-light) 0%, var(--silver) 100%);
+      border-radius: 50%;
+      box-shadow: 
+        0 4px 12px rgba(0,0,0,0.4),
+        inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+
+    .tonearm-arm {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 7px;
+      height: 85px;
+      background: linear-gradient(90deg, var(--silver-dark) 0%, var(--silver-light) 50%, var(--silver-dark) 100%);
+      border-radius: 4px;
+      transform-origin: bottom center;
+      transform: rotate(-8deg);
+    }
+
+    .tonearm-head {
+      position: absolute;
+      top: -5px;
+      left: -9px;
+      width: 26px;
+      height: 18px;
+      background: linear-gradient(180deg, var(--silver-light) 0%, var(--silver) 100%);
+      border-radius: 3px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .tonearm-stylus {
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 9px;
+      background: var(--chassis-dark);
+      border-radius: 2px;
+    }
+
+    /* Power LED */
+    .power-led {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 
+        0 0 8px var(--amber),
+        0 0 16px var(--amber-glow),
+        0 0 24px var(--amber-glow-strong);
+      animation: ledBreathe 4s ease-in-out infinite;
+    }
+
+    @keyframes ledBreathe {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--amber), 0 0 16px var(--amber-glow); }
+      50% { opacity: 0.6; box-shadow: 0 0 4px var(--amber-dim), 0 0 8px var(--amber-glow); }
+    }
+
+    .hero:hover .power-led {
+      animation: ledDim 2s ease-in-out infinite;
+    }
+
+    @keyframes ledDim {
+      0%, 100% { opacity: 0.4; box-shadow: 0 0 4px var(--amber-dim); }
+      50% { opacity: 0.2; box-shadow: 0 0 2px var(--amber-dim); }
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.5rem, 7vw, 5rem);
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.3);
+    }
+
+    .hero h1 span {
+      background: linear-gradient(180deg, var(--silver-light) 0%, var(--silver) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+      color: var(--text-dim);
+      max-width: 520px;
+      margin-bottom: 40px;
+      line-height: 1.7;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.25s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, var(--silver-light) 0%, var(--silver) 100%);
+      color: var(--chassis-dark);
+      box-shadow: 
+        0 4px 12px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 6px 20px rgba(0,0,0,0.4),
+        0 0 24px var(--amber-glow),
+        inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 
+        0 2px 8px rgba(0,0,0,0.3),
+        inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--silver-dark);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--silver-light);
+      background: linear-gradient(180deg, var(--chassis-light) 0%, var(--chassis) 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .hero-scroll {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      animation: scrollBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes scrollBounce {
+      0%, 100% { opacity: 0.5; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 1; transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ─── Section shared ─── */
+    section { 
+      padding: 100px 24px;
+      position: relative;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 12px;
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .section-label::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 12px;
+      height: 1px;
+      background: var(--amber);
+      box-shadow: 0 0 4px var(--amber);
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      color: var(--text);
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .section-sub {
+      color: var(--text-dim);
+      font-size: 1rem;
+      max-width: 580px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* ─── Features ─── */
+    #features { background: linear-gradient(180deg, var(--chassis) 0%, var(--chassis-light) 100%); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: linear-gradient(180deg, var(--chassis-light) 0%, var(--chassis) 100%);
+      border: 1px solid var(--silver-dark);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      transition: all 0.35s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .feature-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .feature-card:hover {
+      border-color: var(--silver-light);
+      transform: translateY(-4px);
+      box-shadow: 
+        0 12px 32px rgba(0,0,0,0.3),
+        0 0 0 1px var(--amber-glow);
+    }
+
+    .feature-icon {
+      width: 44px; height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      color: var(--silver-light);
+      background: linear-gradient(135deg, var(--silver-dark) 0%, var(--silver) 100%);
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .feature-icon svg { width: 24px; height: 24px; }
+
+    .feature-card h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ─── How it Works ─── */
+    .steps { display: flex; flex-direction: column; gap: 20px; }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, var(--chassis) 0%, var(--chassis-light) 100%);
+      border: 1px solid var(--silver-dark);
+      transition: all 0.3s;
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    .step:nth-child(even) {
+      transform: translateX(20px);
+    }
+
+    .step.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .step:hover {
+      border-color: var(--silver-light);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 44px; height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--silver-dark) 0%, var(--silver) 100%);
+      color: var(--chassis-dark);
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      box-shadow: 
+        inset 0 1px 0 rgba(255,255,255,0.3),
+        0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .step-content h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .step-content p {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ─── Installation ─── */
+    #install { background: linear-gradient(180deg, var(--chassis-light) 0%, var(--chassis) 100%); }
+
+    .code-block {
+      background: var(--chassis-dark);
+      border: 1px solid var(--silver-dark);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--amber) 50%, transparent 100%);
+      animation: scanline 4s linear infinite;
+    }
+
+    @keyframes scanline {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
+    }
+
+    .code-block code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--silver-light);
+      line-height: 1.8;
+      white-space: pre;
+    }
+
+    .code-block .comment { color: var(--text-muted); }
+    .code-block .cmd { color: var(--amber); }
+
+    /* ─── Footer ─── */
+    footer {
+      text-align: center;
+      padding: 48px 24px;
+      border-top: 1px solid var(--silver-dark);
+      background: linear-gradient(180deg, var(--chassis) 0%, var(--chassis-dark) 100%);
+    }
+
+    footer p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--amber);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover { color: var(--silver-light); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      nav { padding: 12px 16px; }
+      .nav-links a { display: none; }
+      .nav-links .nav-gh { display: flex; }
+      .hero { padding: 100px 16px 60px; }
+      .turntable { width: 220px; height: 220px; margin-bottom: 32px; }
+      .record-label { width: 30%; height: 30%; }
+      .record-label-text { font-size: 0.45rem; top: 38%; }
+      section { padding: 60px 16px; }
+      .step { flex-direction: column; }
+      .cursor { display: none; } /* Hide custom cursor on mobile */
+      body { cursor: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Custom Cursor -->
+  <div class="cursor"></div>
+
+  <!-- Navigation -->
+  <nav>
+    <span class="nav-logo">VinylRipper</span>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/conner/vinylripper" class="nav-gh" target="_blank">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.5.338c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="turntable">
+      <div class="platter">
+        <div class="record">
+          <div class="record-label">
+            <span class="record-label-text">VinylRipper</span>
+          </div>
+        </div>
+      </div>
+      <div class="tonearm">
+        <div class="tonearm-base"></div>
+        <div class="tonearm-arm">
+          <div class="tonearm-head">
+            <div class="tonearm-stylus"></div>
+          </div>
+        </div>
+      </div>
+      <div class="power-led"></div>
+    </div>
+
+    <h1>Vinyl <span>Ripper</span></h1>
+    <p>Record your vinyl collection to digital with live waveform preview, automatic silence detection, and Discogs metadata lookup.</p>
+    <div class="hero-btns">
+      <a href="#install" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/conner/vinylripper" class="btn btn-secondary" target="_blank">View on GitHub</a>
+    </div>
+    <div class="hero-scroll">Scroll</div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <span class="section-label">Features</span>
+      <h2 class="section-title">Everything you need to digitize vinyl</h2>
+      <p class="section-sub">A focused toolkit that turns your turntable into a high-quality digital recording studio.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <h3>Live Recording</h3>
+          <p>Record directly from your sound card with real-time waveform display. Supports any input device at any sample rate.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </div>
+          <h3>Auto Silence Detection</h3>
+          <p>Automatically detects gaps between tracks. Adjustable sensitivity and minimum gap duration for perfect splits every time.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          </div>
+          <h3>Discogs Integration</h3>
+          <p>Look up album metadata from Discogs — artist, title, year, label, tracklist, and cover art. Tags your FLAC files automatically.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <h3>FLAC with Cover Art</h3>
+          <p>Save as FLAC, WAV, OGG, or AIFF. Embedded metadata and cover art included. Your digital library stays organized.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M2 15.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V3.5s-3-2-5-2-5 2-5 2-5 2-5 2z"/><path d="M2 20.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V8"/></svg>
+          </div>
+          <h3>Live Waveform</h3>
+          <p>Watch your recording in real time with a smooth, scrolling waveform display. Review your waveform after recording with draggable split markers.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <h3>Track Splitting</h3>
+          <p>Split your recording into individual tracks automatically. Draggable markers let you fine-tune split points. Name tracks from Discogs data.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how">
+    <div class="container">
+      <span class="section-label">How It Works</span>
+      <h2 class="section-title">From vinyl to files in four steps</h2>
+      <p class="section-sub">The workflow is straightforward. Connect your turntable, search for your album, record, and save.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Connect & Configure</h3>
+            <p>Plug your turntable into your computer's line-in or USB audio interface. Select the input device from the dropdown.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Search Discogs</h3>
+            <p>When you press Record, a search dialog opens. Search for your album on Discogs by artist and title. Select the matching release to pull in track names, year, and cover art.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Record Your Vinyl</h3>
+            <p>Hit Record and start playing your record. The waveform updates in real time. When the side is done, press Stop.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Split & Save</h3>
+            <p>Review the waveform, adjust split markers, and save individual tracks as FLAC files with full metadata and cover art embedded.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation -->
+  <section id="install">
+    <div class="container">
+      <span class="section-label">Installation</span>
+      <h2 class="section-title">Get up and running</h2>
+      <p class="section-sub">Requires Python 3.11 or later. Works on Linux with PipeWire or ALSA.</p>
+
+      <div class="code-block">
+        <code><span class="comment"># Clone the repository</span>
+<span class="cmd">git</span> clone https://github.com/conner/vinylripper.git
+<span class="comment">cd vinylripper</span>
+
+<span class="comment"># Create a virtual environment</span>
+<span class="cmd">python3</span> -m venv .venv
+<span class="cmd">source</span> .venv/bin/activate
+
+<span class="comment"># Install dependencies</span>
+<span class="cmd">pip</span> install -e .
+
+<span class="comment"># Run the app</span>
+<span class="cmd">vinylripper</span></code>
+      </div>
+
+      <div class="code-block">
+        <code><span class="comment"># Fedora — install system dependencies (PortAudio for audio capture)</span>
+<span class="cmd">sudo</span> dnf install portaudio-devel
+
+<span class="comment"># Or use the setup script</span>
+<span class="cmd">bash</span> setup.sh</code>
+      </div>
+
+      <p style="color: var(--text-dim); font-size: 0.88rem; margin-top: 12px;">
+        You'll need a <a href="https://www.discogs.com/settings/developers" style="color: var(--amber);">Discogs personal access token</a> for metadata lookup.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>Built with Python, PyQt6, and ❤️ &nbsp;·&nbsp; <a href="https://github.com/conner/vinylripper" target="_blank">GitHub</a></p>
+  </footer>
+
+  <!-- Scratch sound effect (base64 encoded short vinyl scratch) -->
+  <audio id="scratch-sound" preload="auto">
+    <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+  </audio>
+
+  <script>
+    // Custom cursor
+    const cursor = document.querySelector('.cursor');
+    let cursorX = 0, cursorY = 0;
+    
+    document.addEventListener('mousemove', (e) => {
+      cursorX = e.clientX;
+      cursorY = e.clientY;
+      cursor.style.left = cursorX + 'px';
+      cursor.style.top = cursorY + 'px';
+    });
+
+    // Cursor hover effect
+    const interactiveElements = document.querySelectorAll('a, button, .feature-card, .step, .btn');
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    });
+
+    // Navigation scroll effect
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 100) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
+
+    // Scroll-triggered reveals
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.feature-card, .step').forEach(el => {
+      observer.observe(el);
+    });
+
+    // Scratch sound on hero hover
+    const hero = document.getElementById('hero');
+    const scratchSound = document.getElementById('scratch-sound');
+    
+    // Create a simple scratch sound using Web Audio API
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playScratchSound() {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Create a quick pitch bend for scratch effect
+      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+    }
+
+    let scratchTimeout;
+    hero.addEventListener('mouseenter', () => {
+      clearTimeout(scratchTimeout);
+      scratchTimeout = setTimeout(() => {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        playScratchSound();
+      }, 300); // Play after 300ms of hover
+    });
+
+    hero.addEventListener('mouseleave', () => {
+      clearTimeout(scratchTimeout);
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
