@@ -388,6 +388,29 @@
       50% { opacity: 0.2; box-shadow: 0 0 2px var(--amber-dim); }
     }
 
+    .wip-badge {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      padding: 6px 12px;
+      background: linear-gradient(180deg, var(--chassis-light) 0%, var(--chassis) 100%);
+      border: 1px solid var(--amber);
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--amber);
+      box-shadow: 0 0 12px var(--amber-glow);
+      animation: wipPulse 3s ease-in-out infinite;
+      z-index: 10;
+    }
+
+    @keyframes wipPulse {
+      0%, 100% { box-shadow: 0 0 8px var(--amber-glow); opacity: 1; }
+      50% { box-shadow: 0 0 20px var(--amber-glow-strong); opacity: 0.7; }
+    }
+
     .hero h1 {
       font-family: 'Playfair Display', serif;
       font-size: clamp(2.5rem, 7vw, 5rem);
@@ -758,6 +781,7 @@
 
   <!-- Hero -->
   <section class="hero" id="hero">
+    <div class="wip-badge">Work in Progress</div>
     <div class="turntable">
       <div class="platter">
         <div class="record">
