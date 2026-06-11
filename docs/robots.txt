@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://connerjc234.github.io/vinylripper/sitemap.xml
