@@ -15,27 +15,65 @@ A desktop application for digitizing vinyl records. Record from your turntable, 
 ## Requirements
 
 - Python 3.11+
-- Linux (PipeWire or ALSA)
-- PortAudio development libraries
+- PortAudio (system library for audio capture)
 
 ## Installation
 
+### Linux (Fedora/RHEL)
 ```bash
-# Clone the repository
-git clone https://github.com/connerjc234/vinylripper.git
-cd vinylripper
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -e .
-
-# Install system dependencies (Fedora)
+# System dependencies
 sudo dnf install portaudio-devel
 
-# Run the app
+# Clone and install
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+vinylripper
+```
+
+### Linux (Debian/Ubuntu)
+```bash
+sudo apt install portaudio19-dev
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+vinylripper
+```
+
+### macOS
+```bash
+# System dependencies (requires Homebrew)
+brew install portaudio
+
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-macos.txt
+pip install -e .
+vinylripper
+```
+
+### Windows
+```powershell
+# Option 1: Using conda (recommended for PortAudio)
+conda create -n vinylripper python=3.11
+conda activate vinylripper
+conda install -c conda-forge portaudio
+
+# Option 2: Manual PortAudio install
+# Download from http://www.portaudio.com and add to PATH
+
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-windows.txt
+pip install -e .
 vinylripper
 ```
 
@@ -49,6 +87,14 @@ You'll need a [Discogs Personal Access Token](https://www.discogs.com/settings/d
 4. Click **Record** → search for your album on Discogs → select the release
 5. Start playing your record, click **Stop** when done
 6. Adjust split markers if needed, then **Split Tracks** or **Save As...**
+
+## Platform Status
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Linux (Fedora/Debian) | ✅ Tested | Primary development platform |
+| macOS | ⚠️ Untested | Should work with Homebrew PortAudio |
+| Windows | ⚠️ Untested | Requires conda or manual PortAudio setup |
 
 ## Screenshots
 
@@ -69,7 +115,10 @@ vinylripper/
 │   ├── main_window.py     # Main application window
 │   ├── search_dialog.py   # Discogs search dialog
 │   └── waveform_widget.py # Live waveform display
-└── docs/                  # GitHub Pages website
+├── docs/                  # GitHub Pages website
+├── requirements.txt       # Linux dependencies
+├── requirements-macos.txt # macOS dependencies
+└── requirements-windows.txt # Windows dependencies
 ```
 
 ## Development Status
