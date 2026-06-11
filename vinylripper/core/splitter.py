@@ -1,4 +1,3 @@
-import os
 import re
 import numpy as np
 import soundfile as sf
@@ -23,9 +22,9 @@ def detect_silence_splits(audio, samplerate, threshold_db=-40, min_silence_ms=30
     if n_frames < 3:
         return []
 
-    mono = mono[:n_frames * window_size]
+    mono = mono[: n_frames * window_size]
     windows = mono.reshape(n_frames, window_size)
-    rms = np.sqrt(np.mean(windows ** 2, axis=1))
+    rms = np.sqrt(np.mean(windows**2, axis=1))
     silent = rms < threshold
 
     silences = []
@@ -56,7 +55,9 @@ def detect_silence_splits(audio, samplerate, threshold_db=-40, min_silence_ms=30
             last_nonsilent = j
             break
 
-    silences = [(s, d) for s, d in silences if s > first_nonsilent and s + d < last_nonsilent]
+    silences = [
+        (s, d) for s, d in silences if s > first_nonsilent and s + d < last_nonsilent
+    ]
 
     split_points = [(s + d // 2) * window_size for s, d in silences]
 
@@ -75,16 +76,25 @@ def split_audio(audio, split_points):
     return [s for s in segments if len(s) > 0]
 
 
-def _safe_filename(name):
+def safe_filename(name):
     name = re.sub(r'[\\/:*?"<>|]', "", name)
-    name = re.sub(r'\s+', " ", name).strip()
+    name = re.sub(r"\s+", " ", name).strip()
     return name or "untitled"
 
 
-def save_track(filepath, data, samplerate, album_metadata=None,
-               track_position=None, track_title=None):
+def save_track(
+    filepath,
+    data,
+    samplerate,
+    album_metadata=None,
+    track_position=None,
+    track_title=None,
+):
     sf.write(filepath, data, samplerate)
     if album_metadata is not None:
-        write_tags(filepath, album_metadata,
-                   track_position=track_position,
-                   track_title=track_title)
+        write_tags(
+            filepath,
+            album_metadata,
+            track_position=track_position,
+            track_title=track_title,
+        )

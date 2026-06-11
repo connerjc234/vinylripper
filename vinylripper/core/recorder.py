@@ -13,14 +13,19 @@ class Recorder:
         self.samplerate = samplerate
         self.channels = channels
         self._blocksize = blocksize
-        self._queue = queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self._stream = None
         self._recording = False
+        self._paused = False
         self._frames = []
 
     @property
     def is_recording(self):
         return self._recording
+
+    @property
+    def is_paused(self):
+        return self._paused
 
     def start(self):
         if self._recording:
@@ -40,11 +45,43 @@ class Recorder:
         if not self._recording:
             return
         self._recording = False
+        self._paused = False
         if self._stream:
             self._stream.stop()
             self._stream.close()
             self._stream = None
         return np.concatenate(self._frames, axis=0) if self._frames else np.array([])
+
+    def pause(self):
+        if not self._recording or self._paused:
+            return
+        self._paused = True
+        if self._stream:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+
+    def resume(self):
+        if not self._recording or not self._paused:
+            return
+        self._paused = False
+        self._stream = sd.InputStream(
+            device=self.device,
+            samplerate=self.samplerate,
+            channels=self.channels,
+            blocksize=self._blocksize,
+            callback=self._callback,
+        )
+        self._stream.start()
+
+    def get_recent_audio(self, duration_secs):
+        if not self._frames:
+            return np.array([])
+        all_frames = np.concatenate(self._frames, axis=0)
+        n = int(duration_secs * self.samplerate)
+        if len(all_frames) <= n:
+            return all_frames
+        return all_frames[-n:]
 
     def save(self, filepath, data, metadata=None):
         sf.write(filepath, data, self.samplerate)
@@ -69,10 +106,7 @@ class Recorder:
 
     def list_input_devices(self):
         devices = sd.query_devices()
-        return [
-            d for d in devices
-            if d["max_input_channels"] > 0
-        ]
+        return [d for d in devices if d["max_input_channels"] > 0]
 
 
 def write_tags(filepath, metadata, track_position=None, track_title=None):
