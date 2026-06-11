@@ -789,6 +789,52 @@
 
     footer a:hover { color: var(--silver-light); }
 
+    /* ─── OS Tabs ─── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--silver-dark);
+    }
+
+    .tab-btn {
+      padding: 10px 24px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: linear-gradient(180deg, var(--chassis-light) 0%, transparent 100%);
+    }
+
+    .tab-btn.active {
+      color: var(--amber);
+      border-bottom-color: var(--amber);
+    }
+
+    .tab-panel {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* ─── Responsive ─── */
     @media (max-width: 640px) {
       nav { padding: 12px 16px; }
@@ -962,10 +1008,22 @@
     <div class="container">
       <span class="section-label">Installation</span>
       <h2 class="section-title">Get up and running</h2>
-      <p class="section-sub">Requires Python 3.11 or later. Works on Linux with PipeWire or ALSA.</p>
+      <p class="section-sub">Requires Python 3.11 or later. Supports Linux, macOS, and Windows.</p>
 
-      <div class="code-block">
-        <code><span class="comment"># Clone the repository</span>
+      <!-- OS Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="linux">Linux</button>
+        <button class="tab-btn" data-tab="macos">macOS</button>
+        <button class="tab-btn" data-tab="windows">Windows</button>
+      </div>
+
+      <!-- Linux -->
+      <div class="tab-panel active" id="tab-linux">
+        <div class="code-block">
+          <code><span class="comment"># Debian / Ubuntu / Mint — install system deps</span>
+<span class="cmd">sudo</span> apt install portaudio19-dev libxcb-cursor0
+
+<span class="comment"># Clone the repository</span>
 <span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
 <span class="comment">cd vinylripper</span>
 
@@ -973,22 +1031,78 @@
 <span class="cmd">python3</span> -m venv .venv
 <span class="cmd">source</span> .venv/bin/activate
 
-<span class="comment"># Install dependencies</span>
+<span class="comment"># Install Python dependencies</span>
 <span class="cmd">pip</span> install -e .
 
-<span class="comment"># Run the app</span>
+<span class="comment"># Run</span>
 <span class="cmd">vinylripper</span></code>
-      </div>
-
-      <div class="code-block">
-        <code><span class="comment"># Fedora — install system dependencies (PortAudio for audio capture)</span>
+        </div>
+        <div class="code-block">
+          <code><span class="comment"># Fedora / RHEL</span>
 <span class="cmd">sudo</span> dnf install portaudio-devel
-
-<span class="comment"># Or use the setup script</span>
-<span class="cmd">bash</span> setup.sh</code>
+<span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
+<span class="comment">cd vinylripper && python3 -m venv .venv && source .venv/bin/activate</span>
+<span class="cmd">pip</span> install -e .
+<span class="cmd">vinylripper</span></code>
+        </div>
+        <p style="color: var(--text-dim); font-size: 0.88rem;">
+          Or run <code style="color: var(--amber);">bash setup.sh</code> for the quick-start script.
+        </p>
       </div>
 
-      <p style="color: var(--text-dim); font-size: 0.88rem; margin-top: 12px;">
+      <!-- macOS -->
+      <div class="tab-panel" id="tab-macos">
+        <div class="code-block">
+          <code><span class="comment"># Install PortAudio via Homebrew</span>
+<span class="cmd">brew</span> install portaudio
+
+<span class="comment"># Clone the repository</span>
+<span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
+<span class="comment">cd vinylripper</span>
+
+<span class="comment"># Create a virtual environment</span>
+<span class="cmd">python3</span> -m venv .venv
+<span class="cmd">source</span> .venv/bin/activate
+
+<span class="comment"># Install Python dependencies (macOS reqs include PyQt6 via pip)</span>
+<span class="cmd">pip</span> install -e .
+
+<span class="comment"># Run</span>
+<span class="cmd">vinylripper</span></code>
+        </div>
+        <p style="color: var(--text-dim); font-size: 0.88rem;">
+          <span style="color: var(--amber);">⚠</span> macOS is untested. If you hit issues, open a <a href="https://github.com/connerjc234/vinylripper/issues" style="color: var(--amber);">GitHub issue</a>.
+        </p>
+      </div>
+
+      <!-- Windows -->
+      <div class="tab-panel" id="tab-windows">
+        <div class="code-block">
+          <code><span class="comment"># Install PortAudio via conda-forge</span>
+<span class="cmd">conda</span> create -n vinylripper python=3.11
+<span class="cmd">conda</span> activate vinylripper
+<span class="cmd">conda</span> install -c conda-forge portaudio
+
+<span class="comment"># Clone the repository</span>
+<span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
+<span class="comment">cd vinylripper</span>
+
+<span class="comment"># Create a virtual environment</span>
+<span class="cmd">python</span> -m venv .venv
+<span class="cmd">.venv\Scripts\activate</span>
+
+<span class="comment"># Install Python dependencies</span>
+<span class="cmd">pip</span> install -e .
+
+<span class="comment"># Run</span>
+<span class="cmd">vinylripper</span></code>
+        </div>
+        <p style="color: var(--text-dim); font-size: 0.88rem;">
+          <span style="color: var(--amber);">⚠</span> Windows is untested. Requires <a href="https://docs.conda.io/" style="color: var(--amber);">conda</a> or a manual PortAudio build. Open an <a href="https://github.com/connerjc234/vinylripper/issues" style="color: var(--amber);">issue</a> if you need help.
+        </p>
+      </div>
+
+      <p style="color: var(--text-dim); font-size: 0.88rem; margin-top: 16px;">
         You'll need a <a href="https://www.discogs.com/settings/developers" style="color: var(--amber);">Discogs personal access token</a> for metadata lookup.
       </p>
     </div>
@@ -1103,6 +1217,16 @@
             block: 'start'
           });
         }
+      });
+    });
+
+    // OS installation tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       });
     });
   </script>
