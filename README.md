@@ -14,6 +14,7 @@ A desktop application for digitizing vinyl records. Record from your turntable, 
 
 ## Requirements
 
+- A **USB turntable** or **audio interface** with line-in to connect your turntable
 - Python 3.11+
 - PortAudio (system library for audio capture)
 
@@ -71,7 +72,7 @@ You'll need a [Discogs Personal Access Token](https://www.discogs.com/settings/d
 
 ## Usage
 
-1. Connect your turntable to your computer's line-in or USB audio interface
+1. Connect your **USB turntable** (or a standard turntable via a **USB audio interface**) to your computer
 2. Launch `vinylripper`
 3. Select your input device from the dropdown
 4. Click **Record** → search for your album on Discogs → select the release
