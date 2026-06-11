@@ -1,6 +1,14 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QListWidget, QListWidgetItem, QWidget, QLabel, QMessageBox,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QListWidget,
+    QListWidgetItem,
+    QWidget,
+    QLabel,
+    QMessageBox,
 )
 from PyQt6.QtCore import QThread, pyqtSignal, Qt
 from PyQt6.QtGui import QPixmap
@@ -47,8 +55,16 @@ class DetailThread(QThread):
 
     def _build_metadata(self, data: dict) -> AlbumMetadata:
         artists = [a.get("name", "") for a in data.get("artists", []) if a.get("name")]
-        labels = [l.get("name", "") for l in data.get("labels", []) if l.get("name")]
-        catnos = [l.get("catno", "") for l in data.get("labels", []) if l.get("catno")]
+        labels = [
+            label.get("name", "")
+            for label in data.get("labels", [])
+            if label.get("name")
+        ]
+        catnos = [
+            label.get("catno", "")
+            for label in data.get("labels", [])
+            if label.get("catno")
+        ]
 
         cover_url = ""
         images = data.get("images", [])
@@ -67,11 +83,13 @@ class DetailThread(QThread):
 
         tracklist = []
         for t in data.get("tracklist", []):
-            tracklist.append({
-                "position": t.get("position", ""),
-                "title": t.get("title", ""),
-                "duration": t.get("duration", ""),
-            })
+            tracklist.append(
+                {
+                    "position": t.get("position", ""),
+                    "title": t.get("title", ""),
+                    "duration": t.get("duration", ""),
+                }
+            )
 
         return AlbumMetadata(
             artist=", ".join(artists) if artists else self.result.artist,
@@ -186,7 +204,9 @@ class SearchDialog(QDialog):
 
         search_row = QHBoxLayout()
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("Search for artist, album, or catalog number…")
+        self._search_input.setPlaceholderText(
+            "Search for artist, album, or catalog number…"
+        )
         self._search_input.returnPressed.connect(self._do_search)
         search_row.addWidget(self._search_input, 1)
 
@@ -228,17 +248,21 @@ class SearchDialog(QDialog):
         if token:
             self._token_input.setText(token)
             self._init_client(token)
-            self._token_layout.setVisible(False)
+            self._token_input.setVisible(False)
+            self._save_token_btn.setVisible(False)
             self._hint.setVisible(False)
 
     def _save_token(self):
         token = self._token_input.text().strip()
         if not token:
-            QMessageBox.warning(self, "Token Required", "Please enter a valid Discogs token.")
+            QMessageBox.warning(
+                self, "Token Required", "Please enter a valid Discogs token."
+            )
             return
         save_config({"discogs_token": token})
         self._init_client(token)
-        self._token_layout.setVisible(False)
+        self._token_input.setVisible(False)
+        self._save_token_btn.setVisible(False)
 
     def _init_client(self, token):
         self._client = DiscogsClient(token)
@@ -246,8 +270,9 @@ class SearchDialog(QDialog):
     def _do_search(self):
         if not self._client:
             QMessageBox.warning(
-                self, "Token Required",
-                "Please enter and save your Discogs Personal Access Token first."
+                self,
+                "Token Required",
+                "Please enter and save your Discogs Personal Access Token first.",
             )
             return
         query = self._search_input.text().strip()
@@ -305,7 +330,8 @@ class SearchDialog(QDialog):
             if pixmap.loadFromData(result.thumb_data):
                 thumb.setPixmap(
                     pixmap.scaled(
-                        48, 48,
+                        48,
+                        48,
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation,
                     )

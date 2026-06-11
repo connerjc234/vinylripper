@@ -1,7 +1,13 @@
-from PyQt6.QtWidgets import QWidget, QToolTip
+from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import (
-    QPainter, QColor, QPen, QBrush, QFont, QFontMetrics,
-    QLinearGradient, QPolygon,
+    QPainter,
+    QColor,
+    QPen,
+    QBrush,
+    QFont,
+    QFontMetrics,
+    QLinearGradient,
+    QPolygon,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 import numpy as np
@@ -51,11 +57,11 @@ class WaveformWidget(QWidget):
             return
         end = self._write_pos + n
         if end <= MAX_SAMPLES:
-            self._buf[self._write_pos:end] = samples
+            self._buf[self._write_pos : end] = samples
         else:
             first = MAX_SAMPLES - self._write_pos
-            self._buf[self._write_pos:] = samples[:first]
-            self._buf[:n - first] = samples[first:]
+            self._buf[self._write_pos :] = samples[:first]
+            self._buf[: n - first] = samples[first:]
         self._write_pos = (self._write_pos + n) % MAX_SAMPLES
         self._count += n
         self.update()
@@ -116,8 +122,38 @@ class WaveformWidget(QWidget):
                 closest_dist = dist
                 closest = i
         return closest
+    def _draw_waveform_bands(self, painter, data, scale, mid, plot_h, x_offset, color_top, color_bottom):
+        n=len(data)
+        plot_w = self.width() - 20
+        spx = max(1, n // plot_w) if n > plot_w else 1
+        usable = (n // spx) * spx
+        if usable < spx:
+            return
+        
+        chunks = data[:usable].reshape(-1, spx)
+        mins = np.min(chunks, axis=1)
+        maxs = np.max(chunks, axis=1)
+        px_count = len(mins)
 
-    def paintEvent(self, event):
+        half_h = plot_h / 2 - 4
+        y_pos = mid - (mins / scale) * half_h
+        y_neg = mid - (maxs / scale) * half_h
+        tops = np.minimum(y_pos, y_neg).astype(int)
+        bots = np.maximum(y_pos, y_neg).astype(int)
+
+        grad = QLinearGradient(0, 10, 0, 10 + plot_h)
+        grad.setColorAt(0.0, color_top)
+        grad.setColorAt(1.0, color_bottom)
+        painter.setBrush(QBrush(grad))
+        painter.setPen(QPen(color_bottom, 1))
+
+        for x in range(px_count):
+            painter.drawLine(x + x_offset, tops[x], x + x_offset, bots[x])
+
+        painter.setPen(QPen(QColor(45, 45, 55), 1))
+        painter.drawLine(x_offset, int(mid), x_offset + plot_w, int(mid))
+        
+    def paintEvent(self, event):  
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -147,7 +183,7 @@ class WaveformWidget(QWidget):
         start = (self._write_pos - samples_to_show) % MAX_SAMPLES
 
         if start + samples_to_show <= MAX_SAMPLES:
-            data = self._buf[start:start + samples_to_show]
+            data = self._buf[start : start + samples_to_show]
         else:
             first = MAX_SAMPLES - start
             rest = samples_to_show - first
@@ -167,86 +203,38 @@ class WaveformWidget(QWidget):
 
         scale = max(self._peak, 1e-10)
 
-        n = len(data)
-        spx = max(1, n // w) if n > w else 1
-        usable = (n // spx) * spx
-        if usable < spx:
-            self._draw_live_time_axis(painter, w, h, margin, plot_h, bottom_margin, 0)
-            return
-
-        chunks = data[:usable].reshape(-1, spx)
-        mins = np.min(chunks, axis=1)
-        maxs = np.max(chunks, axis=1)
-        px_count = len(mins)
-
-        half_h = plot_h / 2 - 4
-        y_pos = mid - (mins / scale) * half_h
-        y_neg = mid - (maxs / scale) * half_h
-        tops = np.minimum(y_pos, y_neg).astype(int)
-        bots = np.maximum(y_pos, y_neg).astype(int)
-
-        grad = QLinearGradient(0, margin, 0, margin + plot_h)
-        grad.setColorAt(0.0, QColor(0, 160, 220))
-        grad.setColorAt(1.0, QColor(0, 200, 255))
-        painter.setBrush(QBrush(grad))
-        painter.setPen(QPen(QColor(0, 200, 255), 1))
-
-        for x in range(px_count):
-            painter.drawLine(x, tops[x], x, bots[x])
+        self._draw_waveform_bands(
+            painter, data, scale, mid, plot_h, 0,
+            QColor(0, 160, 220), QColor(0, 200, 255)
+        )
 
         if self._recording:
             painter.setPen(QPen(QColor(255, 70, 70), 2))
             painter.drawLine(w - 1, margin, w - 1, margin + plot_h)
-
-        painter.setPen(QPen(QColor(45, 45, 55), 1))
-        painter.drawLine(0, int(mid), w, int(mid))
-
         total_time = samples_to_show / self._samplerate if self._samplerate > 0 else 0
-        self._draw_live_time_axis(painter, w, h, margin, plot_h, bottom_margin, total_time)
+        self._draw_live_time_axis(
+            painter, w, h, margin, plot_h, bottom_margin, total_time
+        )
 
     def _draw_full_review(self, painter, w, h, margin, plot_h, bottom_margin, mid):
         data = self._full_audio
-        total = self._full_total_samples / self._full_samplerate if self._full_samplerate > 0 else 0
+        total = (
+            self._full_total_samples / self._full_samplerate
+            if self._full_samplerate > 0
+            else 0
+        )
 
         if data is None or len(data) < 2:
-            self._draw_review_time_axis(painter, w, h, margin, plot_h, bottom_margin, total)
+            self._draw_review_time_axis(
+                painter, w, h, margin, plot_h, bottom_margin, total
+            )
             return
 
         plot_w = w - 2 * margin
-
-        peak = float(np.max(np.abs(data)))
-        scale = max(peak, 1e-10)
-
-        n = len(data)
-        spx = max(1, n // plot_w) if n > plot_w else 1
-        usable = (n // spx) * spx
-        if usable < spx:
-            self._draw_review_time_axis(painter, w, h, margin, plot_h, bottom_margin, total)
-            return
-
-        chunks = data[:usable].reshape(-1, spx)
-        mins = np.min(chunks, axis=1)
-        maxs = np.max(chunks, axis=1)
-        px_count = len(mins)
-
-        half_h = plot_h / 2 - 4
-        y_pos = mid - (mins / scale) * half_h
-        y_neg = mid - (maxs / scale) * half_h
-        tops = np.minimum(y_pos, y_neg).astype(int)
-        bots = np.maximum(y_pos, y_neg).astype(int)
-
-        grad = QLinearGradient(0, margin, 0, margin + plot_h)
-        grad.setColorAt(0.0, QColor(0, 120, 180))
-        grad.setColorAt(1.0, QColor(0, 160, 220))
-        painter.setBrush(QBrush(grad))
-        painter.setPen(QPen(QColor(0, 160, 220), 1))
-
-        for x in range(px_count):
-            painter.drawLine(margin + x, tops[x], margin + x, bots[x])
-
-        painter.setPen(QPen(QColor(45, 45, 55), 1))
-        painter.drawLine(margin, int(mid), margin + plot_w, int(mid))
-
+        self._draw_waveform_bands(
+          painter, data, scale, mid, plot_h, margin,
+          QColor(0, 120, 180), QColor(0, 160, 220)
+        ) 
         for i, sp in enumerate(self._split_markers):
             x = self._sample_to_x(sp, margin, plot_w)
             is_active = i == self._dragging_index or i == self._hovered_index
@@ -257,16 +245,20 @@ class WaveformWidget(QWidget):
             if is_active:
                 painter.setBrush(QBrush(color))
                 painter.setPen(Qt.PenStyle.NoPen)
-                poly = QPolygon([
-                    QPoint(x, margin),
-                    QPoint(x - 5, margin + 8),
-                    QPoint(x + 5, margin + 8),
-                ])
+                poly = QPolygon(
+                    [
+                        QPoint(x, margin),
+                        QPoint(x - 5, margin + 8),
+                        QPoint(x + 5, margin + 8),
+                    ]
+                )
                 painter.drawPolygon(poly)
 
         self._draw_review_time_axis(painter, w, h, margin, plot_h, bottom_margin, total)
 
-    def _draw_live_time_axis(self, painter, w, h, margin, plot_h, bottom_margin, total_time):
+    def _draw_live_time_axis(
+        self, painter, w, h, margin, plot_h, bottom_margin, total_time
+    ):
         painter.setFont(QFont("monospace", 8))
         fm = QFontMetrics(painter.font())
         interval = self._tick_interval(total_time)
@@ -283,7 +275,9 @@ class WaveformWidget(QWidget):
             painter.drawText(x - tw // 2, margin + plot_h + 16, label)
             t += interval
 
-    def _draw_review_time_axis(self, painter, w, h, margin, plot_h, bottom_margin, total_time):
+    def _draw_review_time_axis(
+        self, painter, w, h, margin, plot_h, bottom_margin, total_time
+    ):
         painter.setFont(QFont("monospace", 8))
         fm = QFontMetrics(painter.font())
         interval = self._tick_interval(total_time)

@@ -1,16 +1,28 @@
 import os
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLabel, QFileDialog, QStatusBar,
-    QMessageBox, QSlider,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QComboBox,
+    QLabel,
+    QFileDialog,
+    QStatusBar,
+    QMessageBox,
+    QSlider,
 )
 from PyQt6.QtCore import Qt, QTimer
 
 from vinylripper.core.recorder import Recorder
-from vinylripper.core.splitter import detect_silence_splits, split_audio, save_track, _safe_filename
+from vinylripper.core.splitter import (
+    detect_silence_splits,
+    split_audio,
+    save_track,
+    safe_filename,
+)
 from vinylripper.ui.waveform_widget import WaveformWidget
 from vinylripper.ui.search_dialog import SearchDialog
-from vinylripper.core.metadata import AlbumMetadata
 
 STYLE = """
 QMainWindow {
@@ -96,6 +108,15 @@ class MainWindow(QMainWindow):
         self._recording = False
         self._recorded_data = None
         self._album_metadata = None
+        self._side = 1
+
+        self._side_check_timer = QTimer()
+        self._side_check_timer.setInterval(3000)
+        self._side_check_timer.timeout.connect(self._check_side_end)
+
+        self._resume_timer = QTimer()
+        self._resume_timer.setInterval(1000)
+        self._resume_timer.timeout.connect(self._try_resume_recording)
 
         self._build_ui()
         self._populate_devices()
@@ -250,6 +271,8 @@ class MainWindow(QMainWindow):
         )
         self._recorder.start()
         self._recording = True
+        self._side = 1
+        self._side_check_timer.start()
         self._waveform.set_samplerate(int(device_info["default_samplerate"]))
         self._waveform.set_recording(True)
         self._record_btn.setText("Stop")
@@ -261,8 +284,11 @@ class MainWindow(QMainWindow):
         self._status.showMessage("Recording...")
 
     def _stop_recording(self):
+        self._side_check_timer.stop()
+        self._resume_timer.stop()
         data = self._recorder.stop()
         self._recording = False
+        self._side = 1
         self._waveform.set_recording(False)
         self._record_btn.setText("Record")
         self._device_combo.setEnabled(True)
@@ -276,7 +302,9 @@ class MainWindow(QMainWindow):
             if has_tracks:
                 self._update_split_preview()
             else:
-                self._split_status.setText("Split & save available after Discogs search")
+                self._split_status.setText(
+                    "Split & save available after Discogs search"
+                )
             dur = len(data) / sr
             self._status.showMessage(f"Recorded {dur:.1f}s — ready to save")
         else:
@@ -299,6 +327,79 @@ class MainWindow(QMainWindow):
             label += f"  ({track_count} in metadata)"
         self._split_status.setText(label)
 
+    def _check_side_end(self):
+        if self._recorder.is_paused:
+            return
+        recent = self._recorder.get_recent_audio(15)
+        sr = self._recorder.samplerate
+        if len(recent) < sr * 3:
+            return
+
+        if recent.ndim > 1:
+            mono = recent.mean(axis=1)
+        else:
+            mono = recent.copy()
+
+        threshold = 10 ** (-45 / 20)
+        window = sr
+        n_windows = min(10, len(mono) // window)
+        if n_windows < 3:
+            return
+
+        silent = 0
+        for i in range(n_windows):
+            chunk = mono[-(i + 1) * window:len(mono) - i * window] if i else mono[-window:]
+            rms = np.sqrt(np.mean(chunk ** 2))
+            if rms < threshold:
+                silent += 1
+            else:
+                silent = 0
+
+        if silent >= 8:
+            self._on_side_finished()
+
+    def _on_side_finished(self):
+        self._recorder.pause()
+        self._side_check_timer.stop()
+        self._waveform.set_recording(False)
+
+        QMessageBox.information(
+            self,
+            f"Side {self._side} Complete",
+            f"Side {self._side} finished. Flip the record and drop the needle.\n"
+            "Recording will resume automatically when audio is detected.",
+        )
+
+        self._status.showMessage(f"Waiting for Side {self._side + 1}...")
+        self._resume_timer.start()
+
+    def _try_resume_recording(self):
+        if not self._recorder.is_paused:
+            self._resume_timer.stop()
+            return
+        try:
+            import sounddevice as sd
+            temp = sd.rec(
+                int(self._recorder.samplerate),
+                samplerate=self._recorder.samplerate,
+                channels=1,
+                device=self._recorder.device,
+                blocking=True,
+            )
+            rms = np.sqrt(np.mean(temp ** 2))
+            if rms > 10 ** (-35 / 20):
+                self._on_audio_detected()
+        except Exception:
+            pass
+
+    def _on_audio_detected(self):
+        self._resume_timer.stop()
+        self._side += 1
+        self._recorder.resume()
+        self._waveform.set_recording(True)
+        self._side_check_timer.start()
+        self._status.showMessage(f"Recording Side {self._side}...")
+
     def _update_split_preview(self):
         if self._recorded_data is None:
             return
@@ -306,13 +407,18 @@ class MainWindow(QMainWindow):
         min_silence_ms = self._duration_slider.value()
         try:
             sr = self._recorder.samplerate
-            points = detect_silence_splits(self._recorded_data, sr,
-                                           threshold_db=threshold_db,
-                                           min_silence_ms=min_silence_ms)
+            points = detect_silence_splits(
+                self._recorded_data,
+                sr,
+                threshold_db=threshold_db,
+                min_silence_ms=min_silence_ms,
+            )
             self._waveform.set_split_markers(points)
             n = len(points) + 1
             label = f"Detected {n} tracks" if points else "No gaps detected"
-            track_count = len(self._album_metadata.tracklist) if self._album_metadata else 0
+            track_count = (
+                len(self._album_metadata.tracklist) if self._album_metadata else 0
+            )
             if track_count and n != track_count:
                 label += f"  ({track_count} in metadata)"
             self._split_status.setText(label)
@@ -326,15 +432,21 @@ class MainWindow(QMainWindow):
         sr = self._recorder.samplerate
         split_points = self._waveform.get_split_markers()
         if not split_points:
-            QMessageBox.information(self, "No Splits",
-                                    "Place split markers on the waveform first "
-                                    "by adjusting the sensitivity slider or dragging markers.")
+            QMessageBox.information(
+                self,
+                "No Splits",
+                "Place split markers on the waveform first "
+                "by adjusting the sensitivity slider or dragging markers.",
+            )
             return
 
         segments = split_audio(self._recorded_data, split_points)
         if len(segments) < 2:
-            QMessageBox.information(self, "No Splits Found",
-                                    "Could not split with current marker positions.")
+            QMessageBox.information(
+                self,
+                "No Splits Found",
+                "Could not split with current marker positions.",
+            )
             return
 
         n_detected = len(segments)
@@ -342,7 +454,8 @@ class MainWindow(QMainWindow):
 
         if n_tracks and n_detected != n_tracks:
             ans = QMessageBox.question(
-                self, "Track Count Mismatch",
+                self,
+                "Track Count Mismatch",
                 f"Detected {n_detected} tracks, but Discogs metadata has "
                 f"{n_tracks} tracks.\n\nSplit anyway?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -367,14 +480,20 @@ class MainWindow(QMainWindow):
                 track_title = t.get("title", "")
 
             if track_title:
-                label = f"{track_num:02d}. {_safe_filename(track_title)}.flac"
+                label = f"{track_num:02d}. {safe_filename(track_title)}.flac"
             else:
                 label = f"Track {track_num:02d}.flac"
 
             filepath = os.path.join(dir_path, label)
             try:
-                save_track(filepath, seg, sr, self._album_metadata,
-                           track_position=track_num, track_title=track_title)
+                save_track(
+                    filepath,
+                    seg,
+                    sr,
+                    self._album_metadata,
+                    track_position=track_num,
+                    track_title=track_title,
+                )
                 saved += 1
             except Exception as e:
                 self._status.showMessage(f"Error saving {label}: {e}")

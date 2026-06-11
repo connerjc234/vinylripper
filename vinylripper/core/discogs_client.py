@@ -1,4 +1,3 @@
-import io
 import requests
 
 API_BASE = "https://api.discogs.com"
@@ -38,11 +37,11 @@ class DiscogsSearchResult:
 
 def _join_labels(labels):
     names = []
-    for l in labels:
-        if isinstance(l, dict):
-            name = l.get("name", "")
+    for label in labels:
+        if isinstance(label, dict):
+            name = label.get("name", "")
         else:
-            name = str(l)
+            name = str(label)
         if name:
             names.append(name)
     return ", ".join(names)
@@ -110,7 +109,7 @@ class DiscogsClient:
             except Exception:
                 result.artist = ""
             try:
-                result.label = ", ".join(l.name for l in item.labels)
+                result.label = ", ".join(label.name for label in item.labels)
             except Exception:
                 result.label = ""
             try:
@@ -121,7 +120,12 @@ class DiscogsClient:
             results.append(result)
 
         self._fetch_thumbs(results)
-        pagination = {"page": page, "pages": 1, "per_page": per_page, "items": len(results)}
+        pagination = {
+            "page": page,
+            "pages": 1,
+            "per_page": per_page,
+            "items": len(results),
+        }
         return results, pagination
 
     def _fetch_thumbs(self, results):
@@ -152,7 +156,10 @@ class DiscogsClient:
             "title": rel.title,
             "year": getattr(rel, "year", 0) or 0,
             "artists": [{"name": a.name} for a in getattr(rel, "artists", [])],
-            "labels": [{"name": l.name, "catno": ""} for l in getattr(rel, "labels", [])],
+            "labels": [
+                {"name": label.name, "catno": ""}
+                for label in getattr(rel, "labels", [])
+            ],
             "genres": getattr(rel, "genres", []),
             "styles": getattr(rel, "styles", []),
             "tracklist": [
