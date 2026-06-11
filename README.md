@@ -33,9 +33,9 @@ pip install -e .
 vinylripper
 ```
 
-### Linux (Debian/Ubuntu)
+### Linux (Debian/Ubuntu/Mint)
 ```bash
-sudo apt install portaudio19-dev
+sudo apt update && sudo apt install portaudio19-dev libxcb-cursor0
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
@@ -43,6 +43,8 @@ source .venv/bin/activate
 pip install -e .
 vinylripper
 ```
+
+> **Note:** On Linux Mint/Ubuntu 22.04+, you need `libxcb-cursor0` for Qt6 to work. If you get "Could not load the Qt platform plugin xcb", run: `sudo apt install libxcb-cursor0`
 
 ### macOS
 ```bash
@@ -120,6 +122,40 @@ vinylripper/
 ├── requirements-macos.txt # macOS dependencies
 └── requirements-windows.txt # Windows dependencies
 ```
+
+## Troubleshooting
+
+### Qt "Could not load platform plugin xcb" (Linux Mint/Ubuntu)
+```bash
+sudo apt install libxcb-cursor0
+```
+
+### No audio input devices found
+- Make sure your user is in the `audio` group: `sudo usermod -a -G audio $USER` (log out/in after)
+- Check PipeWire/PulseAudio is running: `pactl info`
+- Try `pavucontrol` to verify input device visibility
+
+### PortAudio errors
+```bash
+# Fedora
+sudo dnf install portaudio-devel
+
+# Debian/Ubuntu/Mint
+sudo apt install portaudio19-dev
+
+# macOS
+brew install portaudio
+
+# Windows (conda)
+conda install -c conda-forge portaudio
+```
+
+### Discogs token not working
+- Generate a new token at: https://www.discogs.com/settings/developers
+- Make sure it's a **Personal Access Token**, not OAuth
+- Token needs no special scopes for public data
+
+---
 
 ## Development Status
 
