@@ -19,12 +19,22 @@ A desktop application for digitizing vinyl records. Record from your turntable, 
 
 ## Installation
 
+### Quick start (Linux — Debian/Ubuntu/Mint)
+```bash
+sudo apt install portaudio19-dev libxcb-cursor0
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+vinylripper
+```
+
+Or run the setup script: `bash setup.sh`
+
 ### Linux (Fedora/RHEL)
 ```bash
-# System dependencies
 sudo dnf install portaudio-devel
-
-# Clone and install
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
@@ -32,49 +42,27 @@ source .venv/bin/activate
 pip install -e .
 vinylripper
 ```
-
-### Linux (Debian/Ubuntu/Mint)
-```bash
-sudo apt update && sudo apt install portaudio19-dev libxcb-cursor0
-git clone https://github.com/connerjc234/vinylripper.git
-cd vinylripper
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-vinylripper
-```
-
-> **Note:** On Linux Mint/Ubuntu 22.04+, you need `libxcb-cursor0` for Qt6 to work. If you get "Could not load the Qt platform plugin xcb", run: `sudo apt install libxcb-cursor0`
 
 ### macOS
 ```bash
-# System dependencies (requires Homebrew)
 brew install portaudio
-
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-macos.txt
 pip install -e .
 vinylripper
 ```
 
 ### Windows
 ```powershell
-# Option 1: Using conda (recommended for PortAudio)
 conda create -n vinylripper python=3.11
 conda activate vinylripper
 conda install -c conda-forge portaudio
-
-# Option 2: Manual PortAudio install
-# Download from http://www.portaudio.com and add to PATH
-
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements-windows.txt
 pip install -e .
 vinylripper
 ```
