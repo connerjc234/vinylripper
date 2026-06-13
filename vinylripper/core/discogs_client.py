@@ -1,7 +1,10 @@
+import re
+from typing import Any
+
 import requests
 
 API_BASE = "https://api.discogs.com"
-USER_AGENT = "VinylRipper/0.1"
+USER_AGENT = "VinylRipper/1.0"
 
 try:
     import discogs_client as _discogs
@@ -45,6 +48,100 @@ def _join_labels(labels):
         if name:
             names.append(name)
     return ", ".join(names)
+
+
+def _parse_track_position(position: str) -> dict[str, Any]:
+    """Parse Discogs track position (e.g., 'A1', 'A1.a', 'B2') into components."""
+    result = {
+        "position": position,
+        "side": "",
+        "number": 0,
+        "sub_track": "",
+    }
+
+    if not position:
+        return result
+
+    match = re.match(r'^([A-D])(\d+)(?:\.([a-zA-Z]+))?$', position)
+    if match:
+        result["side"] = match.group(1).upper()
+        result["number"] = int(match.group(2))
+        if match.group(3):
+            result["sub_track"] = match.group(3).lower()
+
+    return result
+
+
+def _collapse_sub_tracks(tracklist: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Collapse sub-tracks (A1.a, A1.b) into single tracks with joined titles.
+    This handles medleys and multi-part tracks on vinyl.
+
+    In Discogs, a multi-part track appears as:
+    - A1 (main track title)
+    - A1.a (part 1)
+    - A1.b (part 2)
+
+    This function merges them into a single track entry with the main title
+    and sub-tracks as a list for reference.
+    """
+    if not tracklist:
+        return []
+
+    # Group tracks by base position (A1, A2, B1, etc.)
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for track in tracklist:
+        pos = track.get("position", "")
+        parsed = _parse_track_position(pos)
+        if parsed["side"] and parsed["number"]:
+            base_pos = f"{parsed['side']}{parsed['number']}"
+        else:
+            base_pos = pos
+        groups.setdefault(base_pos, []).append(track)
+
+    # Merge each group - sort by side (A, B, C, D) then track number
+    def sort_key(pos: str) -> tuple:
+        if not pos:
+            return (99, 99)
+        match = re.match(r'^([A-D])(\d+)', pos.upper())
+        if match:
+            side = ord(match.group(1)) - ord('A')
+            num = int(match.group(2))
+            return (side, num)
+        return (99, 99)
+
+    collapsed = []
+    for base_pos in sorted(groups.keys(), key=sort_key):
+        group_tracks = groups[base_pos]
+        if len(group_tracks) == 1:
+            # Single track, no sub-tracks
+            collapsed.append(group_tracks[0])
+        else:
+            # Multiple tracks with same base position - merge them
+            # The first track without sub_track is the main track
+            main_track = None
+            sub_tracks = []
+            for t in group_tracks:
+                p = _parse_track_position(t.get("position", ""))
+                if p["sub_track"]:
+                    sub_tracks.append(t)
+                elif main_track is None:
+                    main_track = t
+
+            if main_track:
+                merged = dict(main_track)
+                merged["sub_tracks"] = sub_tracks
+                # Join sub-track titles to main title
+                if sub_tracks:
+                    sub_titles = [st.get("title", "") for st in sub_tracks if st.get("title")]
+                    if sub_titles:
+                        merged["title"] = merged.get("title", "") + " / " + " / ".join(sub_titles)
+                collapsed.append(merged)
+            else:
+                # No main track, just use first
+                collapsed.append(group_tracks[0])
+
+    return collapsed
 
 
 class DiscogsClient:
@@ -151,25 +248,34 @@ class DiscogsClient:
 
     def _get_release_dc(self, release_id):
         rel = self._dc.release(release_id)
+
+        tracklist = []
+        for t in getattr(rel, "tracklist", []):
+            track_data = {
+                "position": getattr(t, "position", ""),
+                "title": getattr(t, "title", ""),
+                "duration": getattr(t, "duration", ""),
+            }
+            try:
+                track_data["artist"] = ", ".join(a.name for a in t.artists)
+            except Exception:
+                track_data["artist"] = ""
+            tracklist.append(track_data)
+
+        tracklist = _collapse_sub_tracks(tracklist)
+
         return {
             "id": rel.id,
             "title": rel.title,
             "year": getattr(rel, "year", 0) or 0,
             "artists": [{"name": a.name} for a in getattr(rel, "artists", [])],
             "labels": [
-                {"name": label.name, "catno": ""}
+                {"name": label.name, "catno": getattr(label, "catno", "")}
                 for label in getattr(rel, "labels", [])
             ],
             "genres": getattr(rel, "genres", []),
             "styles": getattr(rel, "styles", []),
-            "tracklist": [
-                {
-                    "position": getattr(t, "position", ""),
-                    "title": getattr(t, "title", ""),
-                    "duration": getattr(t, "duration", ""),
-                }
-                for t in getattr(rel, "tracklist", [])
-            ],
+            "tracklist": tracklist,
             "images": [
                 {
                     "uri": img.get("uri", ""),

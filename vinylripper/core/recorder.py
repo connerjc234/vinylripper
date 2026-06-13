@@ -1,8 +1,8 @@
 import queue
+
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-
 
 _QUEUE_MAXSIZE = 16
 
@@ -13,7 +13,7 @@ class Recorder:
         self.samplerate = samplerate
         self.channels = channels
         self._blocksize = blocksize
-        self._queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=_QUEUE_MAXSIZE)
         self._stream = None
         self._recording = False
         self._paused = False

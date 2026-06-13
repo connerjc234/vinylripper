@@ -2,27 +2,34 @@
 
 > **⚠️ Work in Progress** — This project is under active development. Features may change, bugs exist, and the API is not stable yet.
 
-A desktop application for digitizing vinyl records. Record from your turntable, automatically split tracks by detecting silence, look up album metadata from Discogs, and save as tagged FLAC files.
+A desktop application for digitizing vinyl records. Record from your turntable, automatically split tracks by detecting silence, look up album metadata from Discogs, and save as tagged FLAC/MP3/AIFF files.
 
 ## Features
 
 - **Live recording** — Capture audio from any input device with real-time waveform display
-- **Auto track splitting** — Detects silence between tracks; adjustable sensitivity and minimum gap
+- **Auto track splitting** — Detects silence between tracks using FFmpeg; adjustable sensitivity and minimum gap
 - **Discogs integration** — Search and fetch album metadata (artist, title, year, label, tracklist, cover art)
-- **FLAC with embedded tags** — Saves metadata and cover art directly in the audio file
-- **Multiple formats** — FLAC, WAV, OGG, AIFF, AU, RAW
+- **Vinyl-style numbering** — Automatic A1, A2, B1, B2 track positions with side detection
+- **Sub-track/medley support** — Collapses multi-part tracks (A1.a, A1.b) into single entries
+- **Multiple output formats** — FLAC (0-8 compression), MP3 (VBR 0-9), AIFF (16/24/32-bit)
+- **Audio restoration** — Optional highpass rumble filter (30Hz) and declicking via FFmpeg
+- **Cover art embedding** — Downloads and embeds high-quality artwork automatically
+- **Interactive waveform editor** — Drag markers, undo/redo (Ctrl+Z/Ctrl+Y), zoom, pan
+- **Persistent settings** — JSON config with environment variable overrides
+- **Cross-platform** — Native support for Linux and macOS (Windows experimental)
 
 ## Requirements
 
 - A **USB turntable** or **audio interface** with line-in to connect your turntable
 - Python 3.11+
+- **FFmpeg** (system library for audio processing & format conversion)
 - PortAudio (system library for audio capture)
 
 ## Installation
 
-### Quick start (Linux — Debian/Ubuntu/Mint)
+### Linux (Debian/Ubuntu/Mint)
 ```bash
-sudo apt install portaudio19-dev libxcb-cursor0
+sudo apt install ffmpeg portaudio19-dev libxcb-cursor0
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
@@ -30,12 +37,10 @@ source .venv/bin/activate
 pip install -e .
 vinylripper
 ```
-
-Or run the setup script: `bash setup.sh`
 
 ### Linux (Fedora/RHEL)
 ```bash
-sudo dnf install portaudio-devel
+sudo dnf install ffmpeg portaudio-devel
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
@@ -44,9 +49,9 @@ pip install -e .
 vinylripper
 ```
 
-### macOS
+### Linux (Arch)
 ```bash
-brew install portaudio
+sudo pacman -S ffmpeg portaudio
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python3 -m venv .venv
@@ -55,8 +60,20 @@ pip install -e .
 vinylripper
 ```
 
-### Windows
+### macOS (Homebrew)
+```bash
+brew install ffmpeg portaudio
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+vinylripper
+```
+
+### Windows (Experimental)
 ```powershell
+# Install FFmpeg from https://ffmpeg.org/download.html and add to PATH
 conda create -n vinylripper python=3.11
 conda activate vinylripper
 conda install -c conda-forge portaudio
@@ -77,15 +94,24 @@ You'll need a [Discogs Personal Access Token](https://www.discogs.com/settings/d
 3. Select your input device from the dropdown
 4. Click **Record** → search for your album on Discogs → select the release
 5. Start playing your record, click **Stop** when done
-6. Adjust split markers if needed, then **Split Tracks** or **Save As...**
+6. Adjust split markers if needed (drag, or use Silence/Min Gap sliders)
+7. Choose output format (FLAC/MP3/AIFF) and quality from toolbar
+8. Click **Split & Export** or **Save As...**
+
+### Keyboard Shortcuts
+- **Ctrl+Z** — Undo marker change
+- **Ctrl+Y** — Redo marker change
+- **Delete** — Remove selected marker (when implemented)
+- **Scroll** — Zoom waveform
+- **Drag** — Pan waveform (when zoomed)
 
 ## Platform Status
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| Linux (Fedora/Debian) | ✅ Tested | Primary development platform |
-| macOS | ⚠️ Untested | Should work with Homebrew PortAudio |
-| Windows | ⚠️ Untested | Requires conda or manual PortAudio setup |
+| Linux (Debian/Ubuntu/Fedora/Arch) | ✅ Tested | Primary development platform |
+| macOS (Apple Silicon & Intel) | ✅ Tested | Homebrew FFmpeg + PortAudio |
+| Windows | ⚠️ Experimental | Requires manual FFmpeg + conda PortAudio |
 
 ## Screenshots
 
@@ -97,20 +123,39 @@ You'll need a [Discogs Personal Access Token](https://www.discogs.com/settings/d
 vinylripper/
 ├── main.py                 # Entry point
 ├── core/                   # Business logic
-│   ├── config.py          # Configuration management
-│   ├── discogs_client.py  # Discogs API client
-│   ├── metadata.py        # Album metadata dataclass
-│   ├── recorder.py        # Audio recording
-│   └── splitter.py        # Silence detection & track splitting
+│   ├── audio_processor.py # FFmpeg-based audio processing
+│   ├── config.py          # Configuration management (JSON + env)
+│   ├── discogs_client.py  # Discogs API client (sub-track support)
+│   ├── metadata.py        # Album metadata dataclass (vinyl positions)
+│   ├── recorder.py        # Audio recording (sounddevice)
+│   └── splitter.py        # Silence detection (numpy fallback)
 ├── ui/                    # PyQt6 GUI
 │   ├── main_window.py     # Main application window
 │   ├── search_dialog.py   # Discogs search dialog
-│   └── waveform_widget.py # Live waveform display
+│   ├── settings_dialog.py # Settings dialog
+│   └── waveform_widget.py # Live waveform display (undo/redo, minimap)
 ├── docs/                  # GitHub Pages website
-├── requirements.txt       # Linux dependencies
-├── requirements-macos.txt # macOS dependencies
-└── requirements-windows.txt # Windows dependencies
+├── requirements.txt       # Python dependencies
+├── requirements-linux.txt # Linux system deps
+├── requirements-macos.txt # macOS system deps
+└── pyproject.toml         # Build config
 ```
+
+## Configuration
+
+Settings are stored in `~/.config/vinylripper/config.json` and can be overridden via environment variables:
+
+| Setting | Env Variable | Description |
+|---------|--------------|-------------|
+| Discogs Token | `VINYLRIPPER_DISCOGS_TOKEN` | Personal Access Token |
+| Output Directory | `VINYLRIPPER_OUTPUT_DIR` | Default export folder |
+| Output Format | `VINYLRIPPER_OUTPUT_FORMAT` | flac, mp3, aiff |
+| FLAC Compression | `VINYLRIPPER_FLAC_COMPRESSION` | 0-8 |
+| MP3 Quality | `VINYLRIPPER_MP3_QUALITY` | 0-9 (VBR) |
+| Restoration Level | `VINYLRIPPER_RESTORATION_LEVEL` | 0=none, 1=highpass, 2=declick |
+| Silence Threshold | `VINYLRIPPER_SILENCE_THRESHOLD` | dB (negative) |
+| Min Silence | `VINYLRIPPER_MIN_SILENCE` | seconds |
+| Min Track Length | `VINYLRIPPER_MIN_TRACK_LENGTH` | seconds |
 
 ## Troubleshooting
 
@@ -123,6 +168,21 @@ sudo apt install libxcb-cursor0
 - Make sure your user is in the `audio` group: `sudo usermod -a -G audio $USER` (log out/in after)
 - Check PipeWire/PulseAudio is running: `pactl info`
 - Try `pavucontrol` to verify input device visibility
+
+### FFmpeg not found
+```bash
+# Fedora
+sudo dnf install ffmpeg
+
+# Debian/Ubuntu/Mint
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Windows
+# Download from https://ffmpeg.org/download.html and add to PATH
+```
 
 ### PortAudio errors
 ```bash
@@ -156,6 +216,10 @@ This is a **personal learning project** — I'm building it to learn Python, PyQ
 - Messy code in places
 
 Feel free to watch the repo or open issues, but don't rely on this for anything critical yet.
+
+## Credits
+
+Inspired by [VINYLflowplus](https://github.com/flarkflarkflark/VINYLflowplus) — an excellent web-based vinyl digitization tool. VinylRipper adapts many of its ideas for a native desktop workflow.
 
 ## License
 

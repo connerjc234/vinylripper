@@ -1,6 +1,8 @@
 import re
+
 import numpy as np
 import soundfile as sf
+
 from vinylripper.core.recorder import write_tags
 
 

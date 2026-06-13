@@ -1,6 +1,6 @@
 # macOS requirements for VinylRipper
 # Install system dependencies first:
-#   brew install portaudio
+#   brew install ffmpeg portaudio
 # Then:
 #   pip install -e .
 -e .
