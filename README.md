@@ -217,10 +217,6 @@ This is a **personal learning project** — I'm building it to learn Python, PyQ
 
 Feel free to watch the repo or open issues, but don't rely on this for anything critical yet.
 
-## Credits
-
-Inspired by [VINYLflowplus](https://github.com/flarkflarkflark/VINYLflowplus) — an excellent web-based vinyl digitization tool. VinylRipper adapts many of its ideas for a native desktop workflow.
-
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
