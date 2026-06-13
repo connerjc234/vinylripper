@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VinylRipper — Digitize Your Vinyl Collection</title>
-  <meta name="description" content="VinylRipper is a free, open-source desktop app to digitize vinyl records. Record, auto-split tracks, and export FLAC with Discogs metadata and cover art.">
-  <meta name="keywords" content="vinyl ripper, digitize vinyl, record digitizer, FLAC, discogs, audio recording, open source">
+  <meta name="description" content="VinylRipper is a free, open-source desktop app to digitize vinyl records. Record, auto-split tracks, and export FLAC/MP3/AIFF with Discogs metadata, vinyl-style track numbering (A1/A2/B1/B2), and cover art.">
+  <meta name="keywords" content="vinyl ripper, digitize vinyl, record digitizer, FLAC, MP3, AIFF, discogs, audio recording, open source, vinyl digitization">
   <meta name="author" content="connerjc234">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://connerjc234.github.io/vinylripper/">
   <!-- Open Graph (Facebook, LinkedIn, etc.) -->
   <meta property="og:type" content="software">
   <meta property="og:title" content="VinylRipper — Digitize Your Vinyl Collection">
-  <meta property="og:description" content="Record, split, and export your vinyl collection to FLAC with automatic Discogs metadata lookup. Free & open source.">
+  <meta property="og:description" content="Record, split, and export your vinyl collection to FLAC/MP3/AIFF with automatic Discogs metadata lookup, vinyl-style track numbering (A1/A2/B1/B2), and cover art. Free & open source.">
   <meta property="og:url" content="https://connerjc234.github.io/vinylripper/">
   <meta property="og:image" content="https://connerjc234.github.io/vinylripper/social-preview.png">
   <meta property="og:image:width" content="1200">
@@ -21,7 +21,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VinylRipper — Digitize Your Vinyl Collection">
-  <meta name="twitter:description" content="Record, split, and export your vinyl collection to FLAC with automatic Discogs metadata lookup.">
+  <meta name="twitter:description" content="Record, split, and export your vinyl collection to FLAC/MP3/AIFF with automatic Discogs metadata lookup and vinyl-style numbering.">
   <meta name="twitter:image" content="https://connerjc234.github.io/vinylripper/social-preview.png">
   <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">
@@ -31,10 +31,10 @@
     "name": "VinylRipper",
     "operatingSystem": "Linux, macOS, Windows",
     "applicationCategory": "Multimedia",
-    "description": "Record your vinyl collection to digital with live waveform preview, automatic silence detection, and Discogs metadata lookup.",
+    "description": "Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), Discogs metadata lookup, and multi-format export (FLAC/MP3/AIFF).",
     "url": "https://connerjc234.github.io/vinylripper/",
     "downloadUrl": "https://github.com/connerjc234/vinylripper",
-    "softwareVersion": "0.3.0",
+    "softwareVersion": "0.4.0",
     "license": "https://github.com/connerjc234/vinylripper/blob/main/LICENSE",
     "author": {
       "@type": "Person",
@@ -893,8 +893,8 @@
     </div>
 
     <h1>Vinyl <span>Ripper</span></h1>
-    <p>Record your vinyl collection to digital with live waveform preview, automatic silence detection, and Discogs metadata lookup.</p>
-    <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: -24px; margin-bottom: 40px;">Requires a USB turntable or a standard turntable connected via a USB audio interface.</p>
+    <p>Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), and Discogs metadata lookup.</p>
+    <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: -24px; margin-bottom: 40px;">Export FLAC, MP3, or AIFF with cover art. Requires a USB turntable or a standard turntable connected via a USB audio interface.</p>
     <div class="hero-btns">
       <a href="#install" class="btn btn-primary">Get Started</a>
       <a href="https://github.com/connerjc234/vinylripper" class="btn btn-secondary" target="_blank">View on GitHub</a>
@@ -923,7 +923,7 @@
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </div>
           <h3>Auto Silence Detection</h3>
-          <p>Automatically detects gaps between tracks. Adjustable sensitivity and minimum gap duration for perfect splits every time.</p>
+          <p>Automatically detects gaps between tracks using FFmpeg. Adjustable sensitivity and minimum gap duration for perfect splits every time.</p>
         </div>
 
         <div class="feature-card">
@@ -931,31 +931,47 @@
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
           </div>
           <h3>Discogs Integration</h3>
-          <p>Look up album metadata from Discogs — artist, title, year, label, tracklist, and cover art. Tags your FLAC files automatically.</p>
+          <p>Look up album metadata from Discogs — artist, title, year, label, tracklist, and cover art. Tags your files automatically.</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           </div>
-          <h3>FLAC with Cover Art</h3>
-          <p>Save as FLAC, WAV, OGG, or AIFF. Embedded metadata and cover art included. Your digital library stays organized.</p>
+          <h3>Multi-Format Export</h3>
+          <p>Save as FLAC (0-8 compression), MP3 (VBR 0-9), or AIFF (16/24/32-bit). Embedded metadata and cover art included.</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M2 15.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V3.5s-3-2-5-2-5 2-5 2-5 2-5 2z"/><path d="M2 20.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V8"/></svg>
           </div>
-          <h3>Live Waveform</h3>
-          <p>Watch your recording in real time with a smooth, scrolling waveform display. Review your waveform after recording with draggable split markers.</p>
+          <h3>Live Waveform + Undo/Redo</h3>
+          <p>Watch your recording in real time. Review with draggable split markers, undo/redo (Ctrl+Z/Ctrl+Y), and minimap overview.</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">
             <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           </div>
-          <h3>Track Splitting</h3>
-          <p>Split your recording into individual tracks automatically. Draggable markers let you fine-tune split points. Name tracks from Discogs data.</p>
+          <h3>Vinyl Track Numbering</h3>
+          <p>Automatic A1/A2/B1/B2 positions from Discogs data. Sub-track/medley support (A1.a, A1.b → single track with joined title).</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>
+          </div>
+          <h3>Audio Restoration</h3>
+          <p>Optional highpass rumble filter (30Hz) and declicking via FFmpeg. Clean up your recordings before export.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Persistent Settings</h3>
+          <p>JSON config with environment variable overrides. Settings dialog for format, quality, restoration level, and Discogs token.</p>
         </div>
       </div>
     </div>
@@ -1022,7 +1038,7 @@
       <div class="tab-panel active" id="tab-linux">
         <div class="code-block">
           <code><span class="comment"># Debian / Ubuntu / Mint — install system deps</span>
-<span class="cmd">sudo</span> apt install portaudio19-dev libxcb-cursor0
+<span class="cmd">sudo</span> apt install ffmpeg portaudio19-dev libxcb-cursor0
 
 <span class="comment"># Clone the repository</span>
 <span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
@@ -1040,7 +1056,15 @@
         </div>
         <div class="code-block">
           <code><span class="comment"># Fedora / RHEL</span>
-<span class="cmd">sudo</span> dnf install portaudio-devel
+<span class="cmd">sudo</span> dnf install ffmpeg portaudio-devel
+<span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
+<span class="comment">cd vinylripper && python3 -m venv .venv && source .venv/bin/activate</span>
+<span class="cmd">pip</span> install -e .
+<span class="cmd">vinylripper</span></code>
+        </div>
+        <div class="code-block">
+          <code><span class="comment"># Arch Linux</span>
+<span class="cmd">sudo</span> pacman -S ffmpeg portaudio
 <span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
 <span class="comment">cd vinylripper && python3 -m venv .venv && source .venv/bin/activate</span>
 <span class="cmd">pip</span> install -e .
@@ -1054,8 +1078,8 @@
       <!-- macOS -->
       <div class="tab-panel" id="tab-macos">
         <div class="code-block">
-          <code><span class="comment"># Install PortAudio via Homebrew</span>
-<span class="cmd">brew</span> install portaudio
+          <code><span class="comment"># Install FFmpeg + PortAudio via Homebrew</span>
+<span class="cmd">brew</span> install ffmpeg portaudio
 
 <span class="comment"># Clone the repository</span>
 <span class="cmd">git</span> clone https://github.com/connerjc234/vinylripper.git
@@ -1065,21 +1089,22 @@
 <span class="cmd">python3</span> -m venv .venv
 <span class="cmd">source</span> .venv/bin/activate
 
-<span class="comment"># Install Python dependencies (macOS reqs include PyQt6 via pip)</span>
+<span class="comment"># Install Python dependencies</span>
 <span class="cmd">pip</span> install -e .
 
 <span class="comment"># Run</span>
 <span class="cmd">vinylripper</span></code>
         </div>
         <p style="color: var(--text-dim); font-size: 0.88rem;">
-          <span style="color: var(--amber);">⚠</span> macOS is untested. If you hit issues, open a <a href="https://github.com/connerjc234/vinylripper/issues" style="color: var(--amber);">GitHub issue</a>.
+          Tested on Apple Silicon (M1/M2/M3) and Intel macOS.
         </p>
       </div>
 
       <!-- Windows -->
       <div class="tab-panel" id="tab-windows">
         <div class="code-block">
-          <code><span class="comment"># Install PortAudio via conda-forge</span>
+          <code><span class="comment"># Install FFmpeg from https://ffmpeg.org/download.html and add to PATH</span>
+<span class="comment"># Install PortAudio via conda-forge</span>
 <span class="cmd">conda</span> create -n vinylripper python=3.11
 <span class="cmd">conda</span> activate vinylripper
 <span class="cmd">conda</span> install -c conda-forge portaudio
@@ -1099,7 +1124,7 @@
 <span class="cmd">vinylripper</span></code>
         </div>
         <p style="color: var(--text-dim); font-size: 0.88rem;">
-          <span style="color: var(--amber);">⚠</span> Windows is untested. Requires <a href="https://docs.conda.io/" style="color: var(--amber);">conda</a> or a manual PortAudio build. Open an <a href="https://github.com/connerjc234/vinylripper/issues" style="color: var(--amber);">issue</a> if you need help.
+          <span style="color: var(--amber);">⚠</span> Windows is experimental. Requires manual FFmpeg install and <a href="https://docs.conda.io/" style="color: var(--amber);">conda</a> for PortAudio.
         </p>
       </div>
 
