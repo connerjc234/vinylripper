@@ -1,17 +1,17 @@
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
-    QPushButton,
     QListWidget,
     QListWidgetItem,
-    QWidget,
-    QLabel,
     QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
-from PyQt6.QtGui import QPixmap
 
 from vinylripper.core.config import load_config, save_config
 from vinylripper.core.discogs_client import DiscogsClient, DiscogsSearchResult
@@ -88,6 +88,7 @@ class DetailThread(QThread):
                     "position": t.get("position", ""),
                     "title": t.get("title", ""),
                     "duration": t.get("duration", ""),
+                    "artist": t.get("artist", ""),
                 }
             )
 

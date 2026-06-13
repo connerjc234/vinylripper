@@ -1,3 +1,6 @@
 # Dependencies are defined in pyproject.toml
 # Install with: pip install -e .
+# For macOS/Linux, also install system dependencies:
+# macOS: brew install ffmpeg portaudio
+# Linux: sudo apt install ffmpeg portaudio19-dev (Debian/Ubuntu) or sudo dnf install ffmpeg portaudio-devel (Fedora)
 -e .

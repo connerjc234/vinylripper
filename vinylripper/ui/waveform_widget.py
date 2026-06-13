@@ -1,21 +1,21 @@
-from PyQt6.QtWidgets import QWidget
+import numpy as np
+from PyQt6.QtCore import QPoint, QRect, Qt, pyqtSignal
 from PyQt6.QtGui import (
-    QPainter,
-    QColor,
-    QPen,
     QBrush,
+    QColor,
     QFont,
     QFontMetrics,
     QLinearGradient,
+    QPainter,
+    QPen,
     QPolygon,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint
-import numpy as np
-
+from PyQt6.QtWidgets import QWidget
 
 MAX_SAMPLES = 262144
 MARKER_HIT_RADIUS = 8
 MIN_MARKER_SEPARATION_SAMPLES = 22050
+MAX_UNDO_STACK = 50
 
 
 class WaveformWidget(QWidget):
@@ -37,6 +37,10 @@ class WaveformWidget(QWidget):
         self._split_markers = []
         self._dragging_index = -1
         self._hovered_index = -1
+
+        # Undo/Redo stacks
+        self._undo_stack = []
+        self._redo_stack = []
 
         self.setMinimumHeight(150)
         self.setMouseTracking(True)
@@ -129,7 +133,7 @@ class WaveformWidget(QWidget):
         usable = (n // spx) * spx
         if usable < spx:
             return
-        
+
         chunks = data[:usable].reshape(-1, spx)
         mins = np.min(chunks, axis=1)
         maxs = np.max(chunks, axis=1)
@@ -152,8 +156,8 @@ class WaveformWidget(QWidget):
 
         painter.setPen(QPen(QColor(45, 45, 55), 1))
         painter.drawLine(x_offset, int(mid), x_offset + plot_w, int(mid))
-        
-    def paintEvent(self, event):  
+
+    def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -230,11 +234,14 @@ class WaveformWidget(QWidget):
             )
             return
 
+        current_peak = float(np.max(np.abs(data)))
+        scale = max(current_peak, 1e-10)
+
         plot_w = w - 2 * margin
         self._draw_waveform_bands(
-          painter, data, scale, mid, plot_h, margin,
-          QColor(0, 120, 180), QColor(0, 160, 220)
-        ) 
+            painter, data, scale, mid, plot_h, margin,
+            QColor(0, 120, 180), QColor(0, 160, 220)
+        )
         for i, sp in enumerate(self._split_markers):
             x = self._sample_to_x(sp, margin, plot_w)
             is_active = i == self._dragging_index or i == self._hovered_index
@@ -380,3 +387,123 @@ class WaveformWidget(QWidget):
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.update()
         super().leaveEvent(event)
+
+    def _push_undo(self):
+        """Push current marker state to undo stack."""
+        self._undo_stack.append(list(self._split_markers))
+        if len(self._undo_stack) > MAX_UNDO_STACK:
+            self._undo_stack.pop(0)
+        self._redo_stack.clear()
+
+    def undo(self):
+        """Undo last marker change."""
+        if not self._undo_stack:
+            return False
+        self._redo_stack.append(list(self._split_markers))
+        self._split_markers = self._undo_stack.pop()
+        self.markers_changed.emit(list(self._split_markers))
+        self.update()
+        return True
+
+    def redo(self):
+        """Redo last undone marker change."""
+        if not self._redo_stack:
+            return False
+        self._undo_stack.append(list(self._split_markers))
+        self._split_markers = self._redo_stack.pop()
+        self.markers_changed.emit(list(self._split_markers))
+        self.update()
+        return True
+
+    def can_undo(self):
+        return len(self._undo_stack) > 0
+
+    def can_redo(self):
+        return len(self._redo_stack) > 0
+
+    def clear_undo_stack(self):
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+
+    def add_marker_at_sample(self, sample):
+        """Add a new split marker at the given sample position."""
+        markers = list(self._split_markers)
+        insert_idx = 0
+        for i, m in enumerate(markers):
+            if sample < m:
+                insert_idx = i
+                break
+            insert_idx = i + 1
+
+        if insert_idx > 0 and sample - markers[insert_idx - 1] < MIN_MARKER_SEPARATION_SAMPLES:
+            return False
+        if insert_idx < len(markers) and markers[insert_idx] - sample < MIN_MARKER_SEPARATION_SAMPLES:
+            return False
+
+        self._push_undo()
+        markers.insert(insert_idx, sample)
+        self._split_markers = markers
+        self.markers_changed.emit(list(self._split_markers))
+        self.update()
+        return True
+
+    def remove_marker_at_index(self, index):
+        """Remove marker at the given index."""
+        if 0 <= index < len(self._split_markers):
+            self._push_undo()
+            self._split_markers.pop(index)
+            self.markers_changed.emit(list(self._split_markers))
+            self.update()
+            return True
+        return False
+
+    def draw_minimap(self, painter, rect: QRect):
+        """Draw a minimap overview of the full waveform."""
+        if self._full_audio is None or len(self._full_audio) < 2:
+            return
+
+        data = self._full_audio
+        margin = 2
+        w = rect.width() - 2 * margin
+        h = rect.height() - 2 * margin
+        if w <= 0 or h <= 0:
+            return
+
+        # Downsample for minimap
+        spx = max(1, len(data) // w)
+        usable = (len(data) // spx) * spx
+        if usable < spx:
+            return
+
+        chunks = data[:usable].reshape(-1, spx)
+        mins = np.min(chunks, axis=1)
+        maxs = np.max(chunks, axis=1)
+        px_count = len(mins)
+
+        mid = rect.top() + margin + h / 2
+        half_h = h / 2 - 1
+
+        # Draw background
+        painter.fillRect(rect, QColor(20, 20, 28))
+
+        # Draw waveform
+        painter.setPen(QPen(QColor(0, 120, 180), 1))
+        for x in range(px_count):
+            y1 = mid - (mins[x] * half_h)
+            y2 = mid - (maxs[x] * half_h)
+            painter.drawLine(rect.left() + margin + x, int(y1), rect.left() + margin + x, int(y2))
+
+        # Draw center line
+        painter.setPen(QPen(QColor(45, 45, 55), 1))
+        painter.drawLine(rect.left() + margin, int(mid), rect.right() - margin, int(mid))
+
+        # Draw split markers
+        for _i, sp in enumerate(self._split_markers):
+            x = rect.left() + margin + int(sp / self._full_total_samples * w)
+            color = QColor(255, 160, 40)
+            painter.setPen(QPen(color, 1))
+            painter.drawLine(x, rect.top() + margin, x, rect.bottom() - margin)
+
+        # Draw border
+        painter.setPen(QPen(QColor(60, 60, 70), 1))
+        painter.drawRect(rect.adjusted(0, 0, -1, -1))

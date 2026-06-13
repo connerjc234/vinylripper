@@ -1,5 +1,7 @@
 import sys
+
 from PyQt6.QtWidgets import QApplication
+
 from vinylripper.ui.main_window import MainWindow
 
 
