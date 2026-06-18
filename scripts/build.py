@@ -36,10 +36,10 @@ def install_project():
 
 
 def download_ffmpeg():
-    from scripts.download_ffmpeg import download_ffmpeg as _dl
-
     dest = REPO_ROOT / "ffmpeg_bin"
-    return _dl(dest)
+    subprocess.check_call(
+        [sys.executable, str(REPO_ROOT / "scripts" / "download_ffmpeg.py"), str(dest)]
+    )
 
 
 def generate_spec(onefile: bool = False):

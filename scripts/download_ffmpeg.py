@@ -72,7 +72,7 @@ def download_ffmpeg(target_dir: Path) -> tuple[Path, Path]:
                     with zf.open(name) as src, open(dest, "wb") as dst:
                         shutil.copyfileobj(src, dst)
     elif url.endswith(".tar.xz"):
-        with tarfile.open(fileobj=io.BytesIO(data), mode="r|xz") as tf:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:xz") as tf:
             prefix = info["path_in_zip"]
             for member in tf.getmembers():
                 if member.name.startswith(prefix) and not member.isdir():
