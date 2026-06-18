@@ -1,6 +1,11 @@
 # Windows requirements for VinylRipper
 # Install system dependencies first:
-#   conda install -c conda-forge portaudio
+#   Option 1 (recommended): scoop install ffmpeg portaudio
+#   Option 2: choco install ffmpeg portaudio
+#   Option 3: conda install -c conda-forge portaudio
+#   FFmpeg: Download from https://ffmpeg.org/download.html and add to PATH
+#   Also install: pip install sounddevice soundfile numpy mutagen requests pyqt6 discogs-client python-dotenv psutil
+
 # Then:
 #   pip install -e .
 -e .

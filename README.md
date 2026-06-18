@@ -16,9 +16,17 @@ A desktop application for digitizing vinyl records. Record from your turntable, 
 - **Cover art embedding** — Downloads and embeds high-quality artwork automatically
 - **Interactive waveform editor** — Drag markers, undo/redo (Ctrl+Z/Ctrl+Y), zoom, pan
 - **Persistent settings** — JSON config with environment variable overrides
-- **Cross-platform** — Native support for Linux and macOS (Windows experimental)
+- **Cross-platform** — Native support for Linux, macOS, and Windows
 
-## Requirements
+## Download (Windows)
+
+Grab the latest `VinylRipper-Windows-x86_64.zip` from the [Releases page](https://github.com/connerjc234/vinylripper/releases).
+
+Inside the zip is `VinylRipper.exe` — double-click it. No Python, no terminal, no package managers needed. FFmpeg is bundled inside the exe.
+
+> The first launch may be slow while Windows Defender scans the binary. This is normal.
+
+## Requirements (for source installs)
 
 - A **USB turntable** or **audio interface** with line-in to connect your turntable
 - Python 3.11+
@@ -71,17 +79,32 @@ pip install -e .
 vinylripper
 ```
 
-### Windows (Experimental)
+### Windows
 ```powershell
-# Install FFmpeg from https://ffmpeg.org/download.html and add to PATH
-conda create -n vinylripper python=3.11
-conda activate vinylripper
-conda install -c conda-forge portaudio
+# Option A: Using scoop (recommended — easiest)
+# Install scoop from https://scoop.sh first, then:
+scoop install ffmpeg portaudio
 git clone https://github.com/connerjc234/vinylripper.git
 cd vinylripper
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .
+vinylripper
+
+# Option B: Using conda
+conda create -n vinylripper python=3.11
+conda activate vinylripper
+conda install -c conda-forge portaudio
+# Download FFmpeg from https://ffmpeg.org/download.html and add to PATH
+git clone https://github.com/connerjc234/vinylripper.git
+cd vinylripper
+pip install -e .
+vinylripper
+
+# Option C: Automated setup script
+# Run from PowerShell in the vinylripper directory:
+.\setup.ps1
+.\.venv\Scripts\activate
 vinylripper
 ```
 
@@ -111,7 +134,7 @@ You'll need a [Discogs Personal Access Token](https://www.discogs.com/settings/d
 |----------|--------|-------|
 | Linux (Debian/Ubuntu/Fedora/Arch) | ✅ Tested | Primary development platform |
 | macOS (Apple Silicon & Intel) | ✅ Tested | Homebrew FFmpeg + PortAudio |
-| Windows | ⚠️ Experimental | Requires manual FFmpeg + conda PortAudio |
+| Windows | ✅ Tested | scoop/choco/conda install; see instructions below |
 
 ## Screenshots
 
@@ -180,8 +203,11 @@ sudo apt install ffmpeg
 # macOS
 brew install ffmpeg
 
-# Windows
-# Download from https://ffmpeg.org/download.html and add to PATH
+# Windows (choose one)
+scoop install ffmpeg          # via scoop
+choco install ffmpeg          # via chocolatey
+conda install -c conda-forge ffmpeg  # via conda
+# Or download from https://ffmpeg.org/download.html and add to PATH
 ```
 
 ### PortAudio errors
@@ -195,8 +221,11 @@ sudo apt install portaudio19-dev
 # macOS
 brew install portaudio
 
-# Windows (conda)
-conda install -c conda-forge portaudio
+# Windows
+scoop install portaudio       # via scoop
+choco install portaudio       # via chocolatey
+conda install -c conda-forge portaudio  # via conda
+# Note: sounddevice bundles PortAudio on Windows, so this may not be needed.
 ```
 
 ### Discogs token not working

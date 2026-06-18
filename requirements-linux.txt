@@ -1,8 +1,9 @@
 # Linux requirements for VinylRipper
 # Install system dependencies first:
 #   Debian/Ubuntu/Mint: sudo apt install ffmpeg portaudio19-dev libxcb-cursor0
-#   Fedora/RHEL: sudo dnf install ffmpeg portaudio-devel
-#   Arch: sudo pacman -S ffmpeg portaudio
+#   Fedora/RHEL: sudo dnf install ffmpeg portaudio-devel libxcb-cursor
+#   Arch: sudo pacman -S ffmpeg portaudio libxcb-cursor
+
 # Then:
 #   pip install -e .
 -e .

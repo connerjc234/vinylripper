@@ -12,6 +12,8 @@ ENV/
 dist/
 build/
 *.egg-info/
+*.spec
+ffmpeg_bin/
 
 # IDE
 .idea/
