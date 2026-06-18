@@ -123,23 +123,12 @@ if command -v appimagetool &>/dev/null; then
     APPIMAGETOOL="$(command -v appimagetool)"
     info "Using system appimagetool at $APPIMAGETOOL"
 else
-    APPIMAGETOOL_TMP="$(mktemp -d /tmp/appimagetool-XXXXXX)"
-    local_appimage="$APPIMAGETOOL_TMP/appimagetool.AppImage"
+    APPIMAGETOOL_TMP="$(mktemp /tmp/appimagetool-XXXXXX)"
     info "Downloading appimagetool..."
-    wget -q -O "$local_appimage" \
+    wget -q -O "$APPIMAGETOOL_TMP" \
         "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-    chmod +x "$local_appimage"
-    # Extract to avoid FUSE dependency (GitHub CI runners lack FUSE2).
-    # --appimage-extract always extracts to $PWD/squashfs-root, so cd first.
-    info "Extracting appimagetool (avoids FUSE requirement)..."
-    pushd "$APPIMAGETOOL_TMP" > /dev/null
-    "$local_appimage" --appimage-extract > /dev/null 2>&1
-    popd > /dev/null
-    APPIMAGETOOL="$APPIMAGETOOL_TMP/squashfs-root/AppRun"
-    if [[ ! -x "$APPIMAGETOOL" ]]; then
-        error "Failed to extract appimagetool"
-        exit 1
-    fi
+    chmod +x "$APPIMAGETOOL_TMP"
+    APPIMAGETOOL="$APPIMAGETOOL_TMP"
 fi
 
 # ---------------------------------------------------------------------------
@@ -148,12 +137,8 @@ fi
 info "Building AppImage..."
 export ARCH=x86_64
 
-# APPIMAGE_EXTRACT_AND_RUN=1 lets the AppImage-based appimagetool run without FUSE
-if [[ "$APPIMAGETOOL" == *.AppImage ]]; then
-    APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream "$APPDIR" "$APPIMAGE"
-else
-    "$APPIMAGETOOL" --no-appstream "$APPDIR" "$APPIMAGE"
-fi
+# APPIMAGE_EXTRACT_AND_RUN=1 lets the AppImage run without FUSE
+APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream "$APPDIR" "$APPIMAGE"
 
 # ---------------------------------------------------------------------------
 # Done
