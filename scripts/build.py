@@ -36,6 +36,9 @@ def install_project():
 
 
 def download_ffmpeg():
+    if sys.platform != "win32":
+        print("Skipping FFmpeg download (system FFmpeg will be used)")
+        return
     dest = REPO_ROOT / "ffmpeg_bin"
     subprocess.check_call(
         [sys.executable, str(REPO_ROOT / "scripts" / "download_ffmpeg.py"), str(dest)]
