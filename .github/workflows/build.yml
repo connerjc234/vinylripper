@@ -1,0 +1,106 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Target platform"
+        type: choice
+        options:
+          - windows
+          - macos
+          - linux
+        default: windows
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            artifact: VinylRipper-Windows-x86_64.zip
+            onefile: true
+            exe_suffix: .exe
+
+          - os: macos-latest
+            platform: macos
+            artifact: VinylRipper-macOS-x86_64.tar.gz
+            onefile: false
+            exe_suffix: ""
+
+          - os: ubuntu-latest
+            platform: linux
+            artifact: VinylRipper-Linux-x86_64.tar.gz
+            onefile: false
+            exe_suffix: ""
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg portaudio19-dev
+
+      - name: Install system dependencies (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          brew install ffmpeg portaudio
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Download FFmpeg (Windows)
+        if: matrix.platform == 'windows'
+        run: python scripts/download_ffmpeg.py ffmpeg_bin
+        shell: pwsh
+
+      - name: Build executable
+        run: |
+          python scripts/build.py --skip-install ${{ matrix.onefile && '--onefile' || '' }}
+
+      # Package the artifact.
+      # Windows: single .exe (onefile) lives at dist/VinylRipper/VinylRipper.exe
+      # Linux/macOS: folder build at dist/VinylRipper/
+      - name: Create artifact (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          Compress-Archive -Path dist/VinylRipper/VinylRipper.exe -DestinationPath ${{ matrix.artifact }}
+        shell: pwsh
+
+      - name: Create artifact (macOS / Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          cd dist
+          tar czf ../${{ matrix.artifact }} VinylRipper/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}
