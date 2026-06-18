@@ -126,8 +126,11 @@ class WaveformWidget(QWidget):
                 closest_dist = dist
                 closest = i
         return closest
-    def _draw_waveform_bands(self, painter, data, scale, mid, plot_h, x_offset, color_top, color_bottom):
-        n=len(data)
+
+    def _draw_waveform_bands(
+        self, painter, data, scale, mid, plot_h, x_offset, color_top, color_bottom
+    ):
+        n = len(data)
         plot_w = self.width() - 20
         spx = max(1, n // plot_w) if n > plot_w else 1
         usable = (n // spx) * spx
@@ -208,8 +211,14 @@ class WaveformWidget(QWidget):
         scale = max(self._peak, 1e-10)
 
         self._draw_waveform_bands(
-            painter, data, scale, mid, plot_h, 0,
-            QColor(0, 160, 220), QColor(0, 200, 255)
+            painter,
+            data,
+            scale,
+            mid,
+            plot_h,
+            0,
+            QColor(0, 160, 220),
+            QColor(0, 200, 255),
         )
 
         if self._recording:
@@ -239,8 +248,14 @@ class WaveformWidget(QWidget):
 
         plot_w = w - 2 * margin
         self._draw_waveform_bands(
-            painter, data, scale, mid, plot_h, margin,
-            QColor(0, 120, 180), QColor(0, 160, 220)
+            painter,
+            data,
+            scale,
+            mid,
+            plot_h,
+            margin,
+            QColor(0, 120, 180),
+            QColor(0, 160, 220),
         )
         for i, sp in enumerate(self._split_markers):
             x = self._sample_to_x(sp, margin, plot_w)
@@ -435,9 +450,15 @@ class WaveformWidget(QWidget):
                 break
             insert_idx = i + 1
 
-        if insert_idx > 0 and sample - markers[insert_idx - 1] < MIN_MARKER_SEPARATION_SAMPLES:
+        if (
+            insert_idx > 0
+            and sample - markers[insert_idx - 1] < MIN_MARKER_SEPARATION_SAMPLES
+        ):
             return False
-        if insert_idx < len(markers) and markers[insert_idx] - sample < MIN_MARKER_SEPARATION_SAMPLES:
+        if (
+            insert_idx < len(markers)
+            and markers[insert_idx] - sample < MIN_MARKER_SEPARATION_SAMPLES
+        ):
             return False
 
         self._push_undo()
@@ -491,11 +512,15 @@ class WaveformWidget(QWidget):
         for x in range(px_count):
             y1 = mid - (mins[x] * half_h)
             y2 = mid - (maxs[x] * half_h)
-            painter.drawLine(rect.left() + margin + x, int(y1), rect.left() + margin + x, int(y2))
+            painter.drawLine(
+                rect.left() + margin + x, int(y1), rect.left() + margin + x, int(y2)
+            )
 
         # Draw center line
         painter.setPen(QPen(QColor(45, 45, 55), 1))
-        painter.drawLine(rect.left() + margin, int(mid), rect.right() - margin, int(mid))
+        painter.drawLine(
+            rect.left() + margin, int(mid), rect.right() - margin, int(mid)
+        )
 
         # Draw split markers
         for _i, sp in enumerate(self._split_markers):

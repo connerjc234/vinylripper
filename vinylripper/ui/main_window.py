@@ -201,20 +201,26 @@ class MainWindow(QMainWindow):
 
         self._output_format_combo = QComboBox()
         self._output_format_combo.addItems(["FLAC", "MP3", "AIFF"])
-        self._output_format_combo.setCurrentText(self._config.default_output_format.upper())
+        self._output_format_combo.setCurrentText(
+            self._config.default_output_format.upper()
+        )
         self._output_format_combo.setFixedWidth(100)
         toolbar.addWidget(self._output_format_combo)
 
         self._output_quality_combo = QComboBox()
         self._output_quality_combo.setFixedWidth(160)
         self._update_quality_options()
-        self._output_format_combo.currentTextChanged.connect(self._update_quality_options)
+        self._output_format_combo.currentTextChanged.connect(
+            self._update_quality_options
+        )
         toolbar.addWidget(self._output_quality_combo)
 
         toolbar.addSeparator()
 
         self._restoration_combo = QComboBox()
-        self._restoration_combo.addItems(["None", "Highpass (rumble)", "Highpass + Declick"])
+        self._restoration_combo.addItems(
+            ["None", "Highpass (rumble)", "Highpass + Declick"]
+        )
         self._restoration_combo.setCurrentIndex(self._config.default_restoration_level)
         self._restoration_combo.setFixedWidth(160)
         toolbar.addWidget(self._restoration_combo)
@@ -346,24 +352,36 @@ class MainWindow(QMainWindow):
         fmt = self._output_format_combo.currentText().lower()
         self._output_quality_combo.clear()
         if fmt == "flac":
-            self._output_quality_combo.addItems([f"Compression {i} (0=fast, 8=best)" for i in range(9)])
-            self._output_quality_combo.setCurrentIndex(self._config.default_flac_compression)
+            self._output_quality_combo.addItems(
+                [f"Compression {i} (0=fast, 8=best)" for i in range(9)]
+            )
+            self._output_quality_combo.setCurrentIndex(
+                self._config.default_flac_compression
+            )
         elif fmt == "mp3":
-            self._output_quality_combo.addItems([
-                "VBR 0 (~245 kbps, best)",
-                "VBR 1 (~225 kbps)",
-                "VBR 2 (~190 kbps, default)",
-                "VBR 3 (~175 kbps)",
-                "VBR 4 (~165 kbps)",
-                "VBR 5 (~130 kbps)",
-                "VBR 6 (~115 kbps)",
-                "VBR 7 (~100 kbps)",
-                "VBR 8 (~85 kbps)",
-                "VBR 9 (~65 kbps)",
-            ])
-            self._output_quality_combo.setCurrentText(f"VBR {self._config.default_mp3_quality} (~245 kbps, best)" if self._config.default_mp3_quality == "0" else f"VBR {self._config.default_mp3_quality}")
+            self._output_quality_combo.addItems(
+                [
+                    "VBR 0 (~245 kbps, best)",
+                    "VBR 1 (~225 kbps)",
+                    "VBR 2 (~190 kbps, default)",
+                    "VBR 3 (~175 kbps)",
+                    "VBR 4 (~165 kbps)",
+                    "VBR 5 (~130 kbps)",
+                    "VBR 6 (~115 kbps)",
+                    "VBR 7 (~100 kbps)",
+                    "VBR 8 (~85 kbps)",
+                    "VBR 9 (~65 kbps)",
+                ]
+            )
+            self._output_quality_combo.setCurrentText(
+                f"VBR {self._config.default_mp3_quality} (~245 kbps, best)"
+                if self._config.default_mp3_quality == "0"
+                else f"VBR {self._config.default_mp3_quality}"
+            )
         elif fmt == "aiff":
-            self._output_quality_combo.addItems(["16-bit PCM", "24-bit PCM", "32-bit Float"])
+            self._output_quality_combo.addItems(
+                ["16-bit PCM", "24-bit PCM", "32-bit Float"]
+            )
             self._output_quality_combo.setCurrentIndex(0)
 
     def _undo(self):
@@ -389,9 +407,15 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             # Reload config values
             self._threshold_slider.setValue(int(-self._config.silence_threshold_db))
-            self._duration_slider.setValue(int(self._config.min_silence_duration * 1000))
-            self._restoration_combo.setCurrentIndex(self._config.default_restoration_level)
-            self._output_format_combo.setCurrentText(self._config.default_output_format.upper())
+            self._duration_slider.setValue(
+                int(self._config.min_silence_duration * 1000)
+            )
+            self._restoration_combo.setCurrentIndex(
+                self._config.default_restoration_level
+            )
+            self._output_format_combo.setCurrentText(
+                self._config.default_output_format.upper()
+            )
             self._update_quality_options()
             self._status.showMessage("Settings saved", 2000)
 
@@ -435,6 +459,7 @@ class MainWindow(QMainWindow):
 
         # Create temp WAV file for recording
         import tempfile
+
         self._temp_wav_path = tempfile.mktemp(suffix=".wav")
 
         self._recorder.start()
@@ -470,6 +495,7 @@ class MainWindow(QMainWindow):
 
             # Save to temp WAV file for FFmpeg processing
             import soundfile as sf
+
             if self._temp_wav_path:
                 sf.write(self._temp_wav_path, data, sr)
 
@@ -525,8 +551,12 @@ class MainWindow(QMainWindow):
 
         silent = 0
         for i in range(n_windows):
-            chunk = mono[-(i + 1) * window:len(mono) - i * window] if i else mono[-window:]
-            rms = np.sqrt(np.mean(chunk ** 2))
+            chunk = (
+                mono[-(i + 1) * window : len(mono) - i * window]
+                if i
+                else mono[-window:]
+            )
+            rms = np.sqrt(np.mean(chunk**2))
             if rms < threshold:
                 silent += 1
             else:
@@ -556,6 +586,7 @@ class MainWindow(QMainWindow):
             return
         try:
             import sounddevice as sd
+
             temp = sd.rec(
                 int(self._recorder.samplerate),
                 samplerate=self._recorder.samplerate,
@@ -563,7 +594,7 @@ class MainWindow(QMainWindow):
                 device=self._recorder.device,
                 blocking=True,
             )
-            rms = np.sqrt(np.mean(temp ** 2))
+            rms = np.sqrt(np.mean(temp**2))
             if rms > 10 ** (-35 / 20):
                 self._on_audio_detected()
         except Exception:
@@ -658,19 +689,25 @@ class MainWindow(QMainWindow):
                 track_metadata.append(self._album_metadata.get_track_metadata(i))
         else:
             for i in range(n_detected):
-                track_metadata.append({
-                    "position": str(i + 1),
-                    "title": f"Track {i + 1}",
-                    "artist": "",
-                    "album": "",
-                })
+                track_metadata.append(
+                    {
+                        "position": str(i + 1),
+                        "title": f"Track {i + 1}",
+                        "artist": "",
+                        "album": "",
+                    }
+                )
 
         # Get output format and quality
         fmt = self._output_format_combo.currentText().lower()
         quality_text = self._output_quality_combo.currentText()
 
         if fmt == "flac":
-            flac_compression = int(quality_text.split()[1].split("(")[0]) if "Compression" in quality_text else self._config.default_flac_compression
+            flac_compression = (
+                int(quality_text.split()[1].split("(")[0])
+                if "Compression" in quality_text
+                else self._config.default_flac_compression
+            )
             mp3_quality = "0"
         elif fmt == "mp3":
             flac_compression = 8
@@ -687,13 +724,19 @@ class MainWindow(QMainWindow):
         # Run processing in background thread
         self._processing_thread = threading.Thread(
             target=self._process_tracks_thread,
-            args=(self._temp_wav_path, dir_path, split_points_sec, track_metadata,
-                  fmt, flac_compression, mp3_quality, restoration_level),
-            daemon=True
+            args=(
+                self._temp_wav_path,
+                dir_path,
+                split_points_sec,
+                track_metadata,
+                fmt,
+                flac_compression,
+                mp3_quality,
+                restoration_level,
+            ),
+            daemon=True,
         )
         self._processing_thread.start()
-
-    _save_finished = pyqtSignal(bool, str, str)
 
     def _save_recording(self):
         if self._recorded_data is None or not self._temp_wav_path:
@@ -715,7 +758,11 @@ class MainWindow(QMainWindow):
         quality_text = self._output_quality_combo.currentText()
 
         if fmt == "flac":
-            flac_compression = int(quality_text.split()[1].split("(")[0]) if "Compression" in quality_text else self._config.default_flac_compression
+            flac_compression = (
+                int(quality_text.split()[1].split("(")[0])
+                if "Compression" in quality_text
+                else self._config.default_flac_compression
+            )
         elif fmt == "mp3":
             if "VBR" in quality_text:
                 mp3_quality = quality_text.split("VBR")[1].split("(")[0].strip()
@@ -745,8 +792,14 @@ class MainWindow(QMainWindow):
                     restoration_level=restoration_level,
                 )
                 if success and self._album_metadata and self._album_metadata.cover_data:
-                    embed_cover_art(path, self._album_metadata.cover_data, self._album_metadata.cover_mime)
-                self._save_finished.emit(success, path, None if success else "Conversion failed")
+                    embed_cover_art(
+                        path,
+                        self._album_metadata.cover_data,
+                        self._album_metadata.cover_mime,
+                    )
+                self._save_finished.emit(
+                    success, path, None if success else "Conversion failed"
+                )
             except Exception as e:
                 self._save_finished.emit(False, "", str(e))
 
@@ -760,8 +813,17 @@ class MainWindow(QMainWindow):
             self._status.showMessage(f"Save failed: {error}")
             QMessageBox.critical(self, "Save Error", error or "Unknown error")
 
-    def _process_tracks_thread(self, input_file, output_dir, split_points, track_metadata,
-                                fmt, flac_compression, mp3_quality, restoration_level):
+    def _process_tracks_thread(
+        self,
+        input_file,
+        output_dir,
+        split_points,
+        track_metadata,
+        fmt,
+        flac_compression,
+        mp3_quality,
+        restoration_level,
+    ):
         try:
             output_files = split_audio_ffmpeg(
                 input_file,
@@ -779,13 +841,15 @@ class MainWindow(QMainWindow):
             # Embed cover art if available
             if self._album_metadata and self._album_metadata.cover_data:
                 for f in output_files:
-                    embed_cover_art(f, self._album_metadata.cover_data, self._album_metadata.cover_mime)
+                    embed_cover_art(
+                        f,
+                        self._album_metadata.cover_data,
+                        self._album_metadata.cover_mime,
+                    )
 
             self._processing_finished.emit(len(output_files), output_dir, None)
         except Exception as e:
             self._processing_finished.emit(0, "", str(e))
-
-    _processing_finished = pyqtSignal(int, str, str)
 
     def _on_track_progress(self, current, total, filepath):
         self._status.showMessage(f"Processing track {current}/{total}...")
@@ -806,11 +870,13 @@ class MainWindow(QMainWindow):
                 self._status.showMessage(f"Error: {error}")
                 QMessageBox.critical(self, "Processing Error", error)
         else:
-            self._status.showMessage(f"Split complete — saved {count} tracks to {output_dir}")
+            self._status.showMessage(
+                f"Split complete — saved {count} tracks to {output_dir}"
+            )
             QMessageBox.information(
                 self,
                 "Export Complete",
-                f"Successfully exported {count} tracks to:\n{output_dir}"
+                f"Successfully exported {count} tracks to:\n{output_dir}",
             )
 
     def closeEvent(self, event):

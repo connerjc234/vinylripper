@@ -56,7 +56,9 @@ class SettingsDialog(QDialog):
         output_layout.addRow("FLAC Compression (0-8):", self._flac_compression)
 
         self._mp3_quality = QComboBox()
-        self._mp3_quality.addItems(["0 (VBR ~245 kbps)", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+        self._mp3_quality.addItems(
+            ["0 (VBR ~245 kbps)", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        )
         output_layout.addRow("MP3 Quality (0-9):", self._mp3_quality)
 
         layout.addWidget(output_group)
@@ -102,7 +104,11 @@ class SettingsDialog(QDialog):
         self._discogs_token.setEditable(True)
         current_token = self._config.discogs_token
         if current_token:
-            masked = "*" * (len(current_token) - 4) + current_token[-4:] if len(current_token) > 4 else "****"
+            masked = (
+                "*" * (len(current_token) - 4) + current_token[-4:]
+                if len(current_token) > 4
+                else "****"
+            )
             self._discogs_token.addItem(masked)
             self._discogs_token.setCurrentText(masked)
         discogs_layout.addRow("Personal Access Token:", self._discogs_token)
@@ -133,7 +139,11 @@ class SettingsDialog(QDialog):
         self._output_dir.setCurrentText(self._config.default_output_dir)
         self._output_format.setCurrentText(self._config.default_output_format)
         self._flac_compression.setValue(self._config.default_flac_compression)
-        self._mp3_quality.setCurrentText(f"{self._config.default_mp3_quality} (VBR ~245 kbps)" if self._config.default_mp3_quality == "0" else self._config.default_mp3_quality)
+        self._mp3_quality.setCurrentText(
+            f"{self._config.default_mp3_quality} (VBR ~245 kbps)"
+            if self._config.default_mp3_quality == "0"
+            else self._config.default_mp3_quality
+        )
         self._silence_threshold.setValue(self._config.silence_threshold_db)
         self._min_silence.setValue(self._config.min_silence_duration)
         self._min_track.setValue(self._config.min_track_length)
@@ -149,7 +159,9 @@ class SettingsDialog(QDialog):
     def _save(self):
         output_dir = self._output_dir.currentText().strip()
         if not output_dir:
-            QMessageBox.warning(self, "Invalid Path", "Please specify an output directory.")
+            QMessageBox.warning(
+                self, "Invalid Path", "Please specify an output directory."
+            )
             return
 
         self._config.set("default_output_dir", output_dir)
@@ -176,4 +188,3 @@ class SettingsDialog(QDialog):
             self.accept()
         else:
             QMessageBox.critical(self, "Error", "Failed to save settings.")
-
