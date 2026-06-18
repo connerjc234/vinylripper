@@ -21,7 +21,7 @@
   <meta name="twitter:title" content="VinylRipper — Digitize Your Vinyl Collection">
   <meta name="twitter:description" content="Record, split, and export your vinyl collection to FLAC/MP3/AIFF with automatic Discogs metadata lookup and vinyl-style numbering.">
   <meta name="twitter:image" content="https://connerjc234.github.io/vinylripper/social-preview.png">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VinylRipper","operatingSystem":"Linux, macOS, Windows","applicationCategory":"Multimedia","description":"Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), Discogs metadata lookup, and multi-format export (FLAC/MP3/AIFF).","url":"https://connerjc234.github.io/vinylripper/","downloadUrl":"https://github.com/connerjc234/vinylripper","softwareVersion":"0.4.0","license":"https://github.com/connerjc234/vinylripper/blob/main/LICENSE","author":{"@type":"Person","name":"connerjc234","url":"https://github.com/connerjc234"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VinylRipper","operatingSystem":"Linux, macOS, Windows","applicationCategory":"Multimedia","description":"Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), Discogs metadata lookup, and multi-format export (FLAC/MP3/AIFF).","url":"https://connerjc234.github.io/vinylripper/","downloadUrl":"https://github.com/connerjc234/vinylripper","softwareVersion":"0.5.0","license":"https://github.com/connerjc234/vinylripper/blob/main/LICENSE","author":{"@type":"Person","name":"connerjc234","url":"https://github.com/connerjc234"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23050505' stroke='%23f2b745' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='14' fill='%23f2b745'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%23050505'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -990,6 +990,15 @@
     .download-card {
       border-radius: var(--radius-outer);
       overflow: hidden;
+      text-decoration: none;
+      display: block;
+      cursor: pointer;
+      transition: all 0.5s var(--spring);
+    }
+
+    .download-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 0 0 1px rgba(232, 171, 58, 0.15), 0 12px 40px rgba(0, 0, 0, 0.4);
     }
 
     .download-card .db-inner {
@@ -997,6 +1006,11 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      transition: background 0.5s var(--spring);
+    }
+
+    .download-card:hover .db-inner {
+      background: rgba(232, 171, 58, 0.02);
     }
 
     .download-card .os-name {
@@ -1179,7 +1193,7 @@
   <section class="hero" id="hero">
     <div class="hero-grid">
       <div class="hero-text">
-        <div class="hero-eyebrow">VinylRipper v0.4</div>
+        <div class="hero-eyebrow">VinylRipper v0.5</div>
         <h1>
           Digitize the<br>
           <span class="highlight">grooves</span>
@@ -1399,21 +1413,41 @@
       <p class="section-sub">Pre-built binaries available. Or run from source — supports Linux, macOS, and Windows.</p>
 
       <div class="download-grid reveal">
-        <div class="download-card db-shell">
+        <a href="https://github.com/connerjc234/vinylripper/releases/download/v0.5.0/VinylRipper-Windows-x86_64.zip" class="download-card db-shell" download>
           <div class="db-inner">
-            <span class="os-name">Windows</span>
+            <span class="os-name">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Windows
+            </span>
             <p class="os-desc">Standalone .exe with bundled FFmpeg. Extract and double-click.</p>
-            <span class="os-badge">VinylRipper-Windows-x86_64.zip</span>
+            <span class="os-badge">VinylRipper-Windows-x86_64.zip <span style="color:var(--text-muted);font-weight:400">⸱ 188 MB</span></span>
           </div>
-        </div>
-        <div class="download-card db-shell reveal reveal-d1">
+        </a>
+        <a href="https://github.com/connerjc234/vinylripper/releases/download/v0.5.0/VinylRipper-macOS-x86_64.tar.gz" class="download-card db-shell reveal reveal-d1" download>
           <div class="db-inner">
-            <span class="os-name">Linux</span>
-            <p class="os-desc">AppImage format. Download, make executable, and run on any distribution.</p>
-            <span class="os-badge">VinylRipper-Linux-x86_64.AppImage</span>
+            <span class="os-name">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="1"/></svg>
+              macOS
+            </span>
+            <p class="os-desc">Universal binary. Requires FFmpeg via Homebrew at runtime. Apple Silicon &amp; Intel.</p>
+            <span class="os-badge">VinylRipper-macOS-x86_64.tar.gz <span style="color:var(--text-muted);font-weight:400">⸱ 33 MB</span></span>
           </div>
-        </div>
+        </a>
+        <a href="https://github.com/connerjc234/vinylripper/releases/download/v0.5.0/VinylRipper-Linux-x86_64.AppImage" class="download-card db-shell" download>
+          <div class="db-inner">
+            <span class="os-name">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              Linux
+            </span>
+            <p class="os-desc">AppImage format. Make executable (<code style="color:var(--amber);font-size:0.72rem">chmod +x</code>) and run on any distro.</p>
+            <span class="os-badge">VinylRipper-Linux-x86_64.AppImage <span style="color:var(--text-muted);font-weight:400">⸱ 91 MB</span></span>
+          </div>
+        </a>
       </div>
+
+      <p style="text-align:center;margin-top:-16px;margin-bottom:32px;font-size:0.82rem;color:var(--text-muted)">
+        v0.5.0 &nbsp;·&nbsp; <a href="https://github.com/connerjc234/vinylripper/releases" style="color:var(--amber);text-decoration:none;border-bottom:1px solid transparent;transition:border-color 0.3s var(--spring)" onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='transparent'">Browse all releases →</a>
+      </p>
 
       <div class="tabs" role="tablist">
         <button class="tab-btn active" data-tab="linux" role="tab" aria-selected="true" aria-controls="tab-linux">Linux</button>
