@@ -38,18 +38,20 @@ vinylripper = "vinylripper.main:main"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP"]
 ignore = ["E501"]
 per-file-ignores = { "tests/*" = ["S101"] }
+
+[tool.ruff.lint.isort]
+known-first-party = ["vinylripper"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "lf"
-
-[tool.ruff.lint.isort]
-known-first-party = ["vinylripper"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -66,7 +68,7 @@ implicit_reexport = true
 strict_optional = true
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "soundfile", "mutagen.*", "discogs_client", "requests", "PyQt6.*", "dotenv", "psutil"]
+module = ["sounddevice", "soundfile", "mutagen.*", "discogs_client", "requests", "PyQt6.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

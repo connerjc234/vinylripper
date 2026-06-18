@@ -7,18 +7,44 @@ Handles Discogs API credentials, audio processing parameters, and output setting
 
 import json
 import os
+import platform
 import sys
 from pathlib import Path
 from typing import Any
 
 
+def _get_default_output_dir() -> str:
+    """Get platform-appropriate default output directory."""
+    music = Path.home() / "Music"
+    if music.exists():
+        return str(music / "VinylRipper")
+    return str(Path.home() / "VinylRipper")
+
+
 def _get_base_path() -> Path:
     """Get base path for config, works with PyInstaller frozen apps."""
-    if getattr(sys, 'frozen', False):
-        meipass = getattr(sys, '_MEIPASS', None)
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
         if meipass:
             return Path(meipass).parent
     return Path(__file__).parent.parent.parent
+
+
+def _get_config_dir() -> Path:
+    """Get platform-appropriate config directory.
+
+    - Windows: %APPDATA%/VinylRipper
+    - Linux:   ~/.config/vinylripper
+    - macOS:   ~/Library/Application Support/VinylRipper
+    """
+    system = platform.system()
+    if system == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+        return base / "VinylRipper"
+    elif system == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "VinylRipper"
+    else:
+        return Path.home() / ".config" / "vinylripper"
 
 
 class Config:
@@ -27,7 +53,7 @@ class Config:
     DEFAULT_CONFIG = {
         "discogs_token": "",
         "discogs_user_agent": "VinylRipper/1.0",
-        "default_output_dir": str(Path.home() / "Music" / "VinylRipper"),
+        "default_output_dir": _get_default_output_dir(),
         "default_output_format": "flac",
         "default_flac_compression": 8,
         "default_mp3_quality": "0",
@@ -42,7 +68,7 @@ class Config:
 
     def __init__(self, config_path: Path | None = None):
         if config_path is None:
-            config_dir = Path.home() / ".config" / "vinylripper"
+            config_dir = _get_config_dir()
             config_dir.mkdir(parents=True, exist_ok=True)
             config_path = config_dir / "config.json"
 
@@ -77,7 +103,11 @@ class Config:
             if value is not None:
                 if key in ("default_flac_compression", "default_restoration_level"):
                     config[key] = int(value)
-                elif key in ("silence_threshold_db", "min_silence_duration", "min_track_length"):
+                elif key in (
+                    "silence_threshold_db",
+                    "min_silence_duration",
+                    "min_track_length",
+                ):
                     config[key] = float(value)
                 else:
                     config[key] = value
@@ -87,7 +117,7 @@ class Config:
     def save(self) -> bool:
         try:
             self._config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._config_path, 'w') as f:
+            with open(self._config_path, "w") as f:
                 json.dump(self._config, f, indent=2)
             return True
         except OSError as e:
@@ -117,7 +147,7 @@ class Config:
 
     @property
     def default_output_dir(self) -> str:
-        return self._config.get("default_output_dir", str(Path.home() / "Music" / "VinylRipper"))  # type: ignore[no-any-return]
+        return self._config.get("default_output_dir", _get_default_output_dir())  # type: ignore[no-any-return]
 
     @property
     def default_output_format(self) -> str:
