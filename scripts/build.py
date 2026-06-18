@@ -2,9 +2,10 @@
 """Build VinylRipper standalone executable with PyInstaller.
 
 Usage:
-    python scripts/build.py             # one-folder build
-    python scripts/build.py --onefile   # single .exe build
-    python scripts/build.py --clean     # clean build artifacts
+    python scripts/build.py                 # one-folder build
+    python scripts/build.py --onefile       # single .exe build
+    python scripts/build.py --appimage      # Linux AppImage
+    python scripts/build.py --clean         # clean build artifacts
 """
 
 import argparse
@@ -221,6 +222,16 @@ def clean():
             p.unlink()
 
 
+def build_appimage():
+    """Wrap PyInstaller output into a Linux AppImage."""
+    script = REPO_ROOT / "scripts" / "build_appimage.sh"
+    if not script.exists():
+        print("build_appimage.sh not found — skipping AppImage build")
+        return
+    print("Building AppImage...")
+    subprocess.check_call(["bash", str(script)])
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build VinylRipper executable")
     parser.add_argument(
@@ -237,6 +248,11 @@ def main():
     parser.add_argument("--skip-install", action="store_true", help="Skip pip install")
     parser.add_argument(
         "--skip-ffmpeg", action="store_true", help="Skip FFmpeg download"
+    )
+    parser.add_argument(
+        "--appimage",
+        action="store_true",
+        help="Build PyInstaller folder + Linux AppImage",
     )
     args = parser.parse_args()
 
@@ -256,6 +272,9 @@ def main():
         else (not args.multi_folder and sys.platform == "win32")
     )
     run_pyinstaller(onefile=onefile)
+
+    if args.appimage:
+        build_appimage()
 
 
 if __name__ == "__main__":

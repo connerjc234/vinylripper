@@ -38,9 +38,10 @@ jobs:
 
           - os: ubuntu-latest
             platform: linux
-            artifact: VinylRipper-Linux-x86_64.tar.gz
+            artifact: VinylRipper-Linux-x86_64.AppImage
             onefile: false
-            exe_suffix: ""
+            exe_suffix: ''
+            appimage: true
 
     runs-on: ${{ matrix.os }}
 
@@ -57,7 +58,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg portaudio19-dev
+          sudo apt-get install -y -qq ffmpeg portaudio19-dev librsvg2-bin
 
       - name: Install system dependencies (macOS)
         if: matrix.platform == 'macos'
@@ -78,17 +79,23 @@ jobs:
         run: |
           python scripts/build.py --skip-install ${{ matrix.onefile && '--onefile' || '' }}
 
+      - name: Build AppImage (Linux)
+        if: matrix.appimage
+        run: |
+          bash scripts/build_appimage.sh --skip-install
+
       # Package the artifact.
-      # Windows: single .exe (onefile) lives at dist/VinylRipper/VinylRipper.exe
-      # Linux/macOS: folder build at dist/VinylRipper/
+      # Windows: single .exe (onefile) at dist/VinylRipper/VinylRipper.exe
+      # macOS: folder build at dist/VinylRipper/ → tar.gz
+      # Linux: AppImage already built by build_appimage.sh at dist/VinylRipper-x86_64.AppImage
       - name: Create artifact (Windows)
         if: matrix.platform == 'windows'
         run: |
           Compress-Archive -Path dist/VinylRipper/VinylRipper.exe -DestinationPath ${{ matrix.artifact }}
         shell: pwsh
 
-      - name: Create artifact (macOS / Linux)
-        if: matrix.platform != 'windows'
+      - name: Create artifact (macOS)
+        if: matrix.platform == 'macos'
         run: |
           cd dist
           tar czf ../${{ matrix.artifact }} VinylRipper/
