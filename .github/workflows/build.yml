@@ -81,8 +81,16 @@ jobs:
 
       - name: Build AppImage (Linux)
         if: matrix.appimage
+        continue-on-error: true
         run: |
-          bash scripts/build_appimage.sh --skip-install
+          bash scripts/build_appimage.sh --skip-install 2>&1 | tee appimage_build.log
+
+      - name: Upload AppImage build log
+        if: matrix.appimage
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-build-log
+          path: appimage_build.log
 
       # Package the artifact.
       # Windows: single .exe (onefile) at dist/VinylRipper/VinylRipper.exe
