@@ -129,9 +129,12 @@ else
     wget -q -O "$local_appimage" \
         "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
     chmod +x "$local_appimage"
-    # Extract to avoid FUSE dependency (GitHub CI runners lack FUSE2)
+    # Extract to avoid FUSE dependency (GitHub CI runners lack FUSE2).
+    # --appimage-extract always extracts to $PWD/squashfs-root, so cd first.
     info "Extracting appimagetool (avoids FUSE requirement)..."
+    pushd "$APPIMAGETOOL_TMP" > /dev/null
     "$local_appimage" --appimage-extract > /dev/null 2>&1
+    popd > /dev/null
     APPIMAGETOOL="$APPIMAGETOOL_TMP/squashfs-root/AppRun"
     if [[ ! -x "$APPIMAGETOOL" ]]; then
         error "Failed to extract appimagetool"
