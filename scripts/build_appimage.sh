@@ -123,12 +123,20 @@ if command -v appimagetool &>/dev/null; then
     APPIMAGETOOL="$(command -v appimagetool)"
     info "Using system appimagetool at $APPIMAGETOOL"
 else
-    APPIMAGETOOL_TMP="$(mktemp /tmp/appimagetool-XXXXXX)"
-    APPIMAGETOOL="$APPIMAGETOOL_TMP"
-    info "Downloading appimagetool (no FUSE needed, using extract-and-run)..."
-    wget -q -O "$APPIMAGETOOL" \
+    APPIMAGETOOL_TMP="$(mktemp -d /tmp/appimagetool-XXXXXX)"
+    local_appimage="$APPIMAGETOOL_TMP/appimagetool.AppImage"
+    info "Downloading appimagetool..."
+    wget -q -O "$local_appimage" \
         "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-    chmod +x "$APPIMAGETOOL"
+    chmod +x "$local_appimage"
+    # Extract to avoid FUSE dependency (GitHub CI runners lack FUSE2)
+    info "Extracting appimagetool (avoids FUSE requirement)..."
+    "$local_appimage" --appimage-extract > /dev/null 2>&1
+    APPIMAGETOOL="$APPIMAGETOOL_TMP/squashfs-root/AppRun"
+    if [[ ! -x "$APPIMAGETOOL" ]]; then
+        error "Failed to extract appimagetool"
+        exit 1
+    fi
 fi
 
 # ---------------------------------------------------------------------------
