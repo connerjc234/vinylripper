@@ -81,25 +81,21 @@ jobs:
 
       - name: Build AppImage (Linux)
         if: matrix.appimage
-        continue-on-error: true
         run: |
-          bash scripts/build_appimage.sh --skip-install 2>&1 | tee appimage_build.log
+          bash scripts/build_appimage.sh --skip-install
 
-      - name: Upload AppImage build log
+      - name: Move AppImage to workspace root
         if: matrix.appimage
-        uses: actions/upload-artifact@v4
-        with:
-          name: appimage-build-log
-          path: appimage_build.log
+        run: mv dist/${{ matrix.artifact }} ${{ matrix.artifact }}
 
       # Package the artifact.
-      # Windows: single .exe (onefile) at dist/VinylRipper/VinylRipper.exe
+      # Windows: single .exe (onefile) at dist/VinylRipper.exe
       # macOS: folder build at dist/VinylRipper/ → tar.gz
-      # Linux: AppImage already built by build_appimage.sh at dist/VinylRipper-x86_64.AppImage
+      # Linux: AppImage moved to workspace root above
       - name: Create artifact (Windows)
         if: matrix.platform == 'windows'
         run: |
-          Compress-Archive -Path dist/VinylRipper/VinylRipper.exe -DestinationPath ${{ matrix.artifact }}
+          Compress-Archive -Path dist/VinylRipper.exe -DestinationPath ${{ matrix.artifact }}
         shell: pwsh
 
       - name: Create artifact (macOS)
