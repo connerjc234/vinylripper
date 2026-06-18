@@ -62,7 +62,7 @@ def _parse_track_position(position: str) -> dict[str, Any]:
     if not position:
         return result
 
-    match = re.match(r'^([A-D])(\d+)(?:\.([a-zA-Z]+))?$', position)
+    match = re.match(r"^([A-D])(\d+)(?:\.([a-zA-Z]+))?$", position)
     if match:
         result["side"] = match.group(1).upper()
         result["number"] = int(match.group(2))
@@ -103,9 +103,9 @@ def _collapse_sub_tracks(tracklist: list[dict[str, Any]]) -> list[dict[str, Any]
     def sort_key(pos: str) -> tuple:
         if not pos:
             return (99, 99)
-        match = re.match(r'^([A-D])(\d+)', pos.upper())
+        match = re.match(r"^([A-D])(\d+)", pos.upper())
         if match:
-            side = ord(match.group(1)) - ord('A')
+            side = ord(match.group(1)) - ord("A")
             num = int(match.group(2))
             return (side, num)
         return (99, 99)
@@ -133,9 +133,13 @@ def _collapse_sub_tracks(tracklist: list[dict[str, Any]]) -> list[dict[str, Any]
                 merged["sub_tracks"] = sub_tracks
                 # Join sub-track titles to main title
                 if sub_tracks:
-                    sub_titles = [st.get("title", "") for st in sub_tracks if st.get("title")]
+                    sub_titles = [
+                        st.get("title", "") for st in sub_tracks if st.get("title")
+                    ]
                     if sub_titles:
-                        merged["title"] = merged.get("title", "") + " / " + " / ".join(sub_titles)
+                        merged["title"] = (
+                            merged.get("title", "") + " / " + " / ".join(sub_titles)
+                        )
                 collapsed.append(merged)
             else:
                 # No main track, just use first

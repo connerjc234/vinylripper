@@ -159,7 +159,7 @@ def write_tags(filepath, metadata, track_position=None, track_title=None):
         pic.height = 0
         pic.depth = 0
         pic.colors = 0
-        pic.desc = b""
+        pic.desc = ""
         audio.add_picture(pic)
     try:
         audio.save()
