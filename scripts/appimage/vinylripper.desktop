@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=VinylRipper
+Comment=Digitize vinyl records — record, split, tag, and export
+Exec=VinylRipper
+Icon=vinylripper
+Terminal=false
+Type=Application
+Categories=Audio;AudioVideo;Utility;
+StartupNotify=true

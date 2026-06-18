@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="recordGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2a2a2a"/>
+      <stop offset="100%" stop-color="#1a1a1a"/>
+    </radialGradient>
+    <radialGradient id="labelGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e53935"/>
+      <stop offset="100%" stop-color="#c62828"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Record body -->
+  <circle cx="128" cy="128" r="112" fill="url(#recordGrad)" stroke="#333" stroke-width="1"/>
+
+  <!-- Grooves — concentric thin rings -->
+  <g fill="none" stroke="#3a3a3a" stroke-width="0.5" opacity="0.7">
+    <circle cx="128" cy="128" r="95"/>
+    <circle cx="128" cy="128" r="88"/>
+    <circle cx="128" cy="128" r="81"/>
+    <circle cx="128" cy="128" r="74"/>
+    <circle cx="128" cy="128" r="67"/>
+  </g>
+
+  <!-- Label area -->
+  <circle cx="128" cy="128" r="52" fill="url(#labelGrad)"/>
+
+  <!-- Label ring accent -->
+  <circle cx="128" cy="128" r="52" fill="none" stroke="#ef5350" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="128" cy="128" r="47" fill="none" stroke="#fff" stroke-width="0.5" opacity="0.15"/>
+
+  <!-- Spindle hole -->
+  <circle cx="128" cy="128" r="6" fill="#1a1a1a"/>
+  <circle cx="128" cy="128" r="5" fill="#111"/>
+
+  <!-- Stylized "VR" on label -->
+  <g fill="#fff" opacity="0.9" transform="translate(128,128)">
+    <!-- V -->
+    <polygon points="-14,-18 -8,10 -6,10 -2,-18 -6,-18 -8,-2 -10,-2 -12,-18"/>
+    <!-- R -->
+    <path d="M-2,-18 h8 c4,0 6,2 6,5 c0,2 -1.5,4 -4,5 l5,8 h-4 l-4.5,-8 h-4.5 v8 h-4 v-18 z m4,3 v6 h4 c2,0 3,-1 3,-3 c0,-2 -1,-3 -3,-3 h-4z"/>
+  </g>
+
+  <!-- Lead-in groove highlight -->
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#444" stroke-width="0.3" opacity="0.5"/>
+  <circle cx="128" cy="128" r="108" fill="none" stroke="#2e2e2e" stroke-width="0.3" opacity="0.4"/>
+</svg>

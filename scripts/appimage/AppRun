@@ -1,0 +1,5 @@
+#!/bin/bash
+# VinylRipper AppImage entry point
+# Bundles the PyInstaller-built executable and all dependencies.
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/VinylRipper" "$@"
