@@ -75,9 +75,28 @@ jobs:
         run: python scripts/download_ffmpeg.py ffmpeg_bin
         shell: pwsh
 
+      - name: Debug Python environment
+        run: |
+          echo "--- which python ---"
+          which python || echo "no python"
+          echo "--- which python3 ---"
+          which python3 || echo "no python3"
+          echo "--- python version ---"
+          python --version 2>&1 || echo "python failed"
+          python3 --version 2>&1 || echo "python3 failed"
+          echo "--- sys.executable ---"
+          python -c "import sys; print(sys.executable)"
+          echo "--- sys.path ---"
+          python -c "import sys; [print(p) for p in sys.path]"
+
+      - name: Download FFmpeg (non-Windows)
+        if: matrix.platform != 'windows'
+        run: |
+          python3 scripts/download_ffmpeg.py ffmpeg_bin
+
       - name: Build executable
         run: |
-          python scripts/build.py --skip-install ${{ matrix.onefile && '--onefile' || '' }}
+          python scripts/build.py --skip-install --skip-ffmpeg ${{ matrix.onefile && '--onefile' || '' }}
 
       - name: Build AppImage (Linux)
         if: matrix.appimage
