@@ -31,14 +31,15 @@ def _find_ffmpeg() -> str:
     if _FFMPEG_CACHE:
         return _FFMPEG_CACHE
 
-    if getattr(sys, 'frozen', False):
-        meipass = getattr(sys, '_MEIPASS', None)
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
         if meipass:
             base_path = Path(meipass)
-            local_ffmpeg = base_path / "ffmpeg"
-            if local_ffmpeg.exists():
-                _FFMPEG_CACHE = str(local_ffmpeg)
-                return _FFMPEG_CACHE
+            for name in ("ffmpeg", "ffmpeg.exe"):
+                local_ffmpeg = base_path / name
+                if local_ffmpeg.exists():
+                    _FFMPEG_CACHE = str(local_ffmpeg)
+                    return _FFMPEG_CACHE
 
     for name in ("ffmpeg", "ffmpeg.exe"):
         path = shutil.which(name)
@@ -48,8 +49,9 @@ def _find_ffmpeg() -> str:
 
     raise FileNotFoundError(
         "FFmpeg not found. Please install FFmpeg:\n"
-        "  macOS: brew install ffmpeg\n"
-        "  Linux: sudo apt install ffmpeg / sudo dnf install ffmpeg"
+        "  Windows: scoop install ffmpeg  (or download from ffmpeg.org)\n"
+        "  macOS:   brew install ffmpeg\n"
+        "  Linux:   sudo apt install ffmpeg / sudo dnf install ffmpeg"
     )
 
 
@@ -58,14 +60,15 @@ def _find_ffprobe() -> str:
     if _FFPROBE_CACHE:
         return _FFPROBE_CACHE
 
-    if getattr(sys, 'frozen', False):
-        meipass = getattr(sys, '_MEIPASS', None)
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
         if meipass:
             base_path = Path(meipass)
-            local_ffprobe = base_path / "ffprobe"
-            if local_ffprobe.exists():
-                _FFPROBE_CACHE = str(local_ffprobe)
-                return _FFPROBE_CACHE
+            for name in ("ffprobe", "ffprobe.exe"):
+                local_ffprobe = base_path / name
+                if local_ffprobe.exists():
+                    _FFPROBE_CACHE = str(local_ffprobe)
+                    return _FFPROBE_CACHE
 
     for name in ("ffprobe", "ffprobe.exe"):
         path = shutil.which(name)
@@ -75,8 +78,9 @@ def _find_ffprobe() -> str:
 
     raise FileNotFoundError(
         "FFprobe not found. Please install FFmpeg (includes ffprobe):\n"
-        "  macOS: brew install ffmpeg\n"
-        "  Linux: sudo apt install ffmpeg / sudo dnf install ffmpeg"
+        "  Windows: scoop install ffmpeg  (or download from ffmpeg.org)\n"
+        "  macOS:   brew install ffmpeg\n"
+        "  Linux:   sudo apt install ffmpeg / sudo dnf install ffmpeg"
     )
 
 
@@ -84,16 +88,22 @@ def get_audio_info(filepath: str) -> dict[str, Any]:
     """Get audio file info using ffprobe."""
     ffprobe = _find_ffprobe()
     cmd = [
-        ffprobe, "-v", "error",
-        "-select_streams", "a:0",
-        "-show_entries", "stream=sample_rate,channels,duration:format=duration",
-        "-of", "json",
-        filepath
+        ffprobe,
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate,channels,duration:format=duration",
+        "-of",
+        "json",
+        filepath,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe failed: {result.stderr}")
     import json
+
     data = json.loads(result.stdout)
     stream = data.get("streams", [{}])[0]
     format_info = data.get("format", {})
@@ -116,15 +126,21 @@ def detect_silence_ffmpeg(
     """
     ffmpeg = _find_ffmpeg()
     cmd = [
-        ffmpeg, "-v", "error",
-        "-i", filepath,
-        "-af", f"silencedetect=noise={silence_threshold_db}dB:d={min_silence_duration}",
-        "-f", "null", "-"
+        ffmpeg,
+        "-v",
+        "error",
+        "-i",
+        filepath,
+        "-af",
+        f"silencedetect=noise={silence_threshold_db}dB:d={min_silence_duration}",
+        "-f",
+        "null",
+        "-",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 
     split_points = []
-    for line in result.stderr.split('\n'):
+    for line in result.stderr.split("\n"):
         if "silence_start" in line:
             match = re.search(r"silence_start:\s*([\d.]+)", line)
             if match:
@@ -210,7 +226,18 @@ def split_audio_ffmpeg(
 
         output_path = os.path.join(output_dir, filename)
 
-        cmd = [ffmpeg, "-y", "-v", "error", "-ss", str(start), "-t", str(track_duration), "-i", input_file]
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-v",
+            "error",
+            "-ss",
+            str(start),
+            "-t",
+            str(track_duration),
+            "-i",
+            input_file,
+        ]
 
         if af_filter_str != "anull":
             cmd.extend(["-af", af_filter_str])
@@ -251,8 +278,12 @@ def split_audio_ffmpeg(
 
         result = subprocess.run(cmd, capture_output=True, timeout=300)
         if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else str(result.stderr)
-            logger.error(f"FFmpeg error for track {i+1}: {stderr}")
+            stderr = (
+                result.stderr.decode("utf-8", errors="replace")
+                if isinstance(result.stderr, bytes)
+                else str(result.stderr)
+            )
+            logger.error(f"FFmpeg error for track {i + 1}: {stderr}")
             continue
 
         if os.path.exists(output_path):
@@ -301,28 +332,46 @@ def convert_audio(
     return result.returncode == 0
 
 
-def embed_cover_art(audio_file: str, cover_data: bytes, mime_type: str = "image/jpeg") -> bool:
+def embed_cover_art(
+    audio_file: str, cover_data: bytes, mime_type: str = "image/jpeg"
+) -> bool:
     """Embed cover art into audio file using FFmpeg."""
     ffmpeg = _find_ffmpeg()
 
     import tempfile
-    with tempfile.NamedTemporaryFile(suffix=f".{mime_type.split('/')[-1]}", delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(
+        suffix=f".{mime_type.split('/')[-1]}", delete=False
+    ) as f:
         f.write(cover_data)
         cover_file = f.name
 
     try:
         output_file = audio_file + ".tmp"
         cmd = [
-            ffmpeg, "-y", "-v", "error",
-            "-i", audio_file,
-            "-i", cover_file,
-            "-map", "0:a", "-map", "1:v",
-            "-c:a", "copy",
-            "-c:v", "mjpeg",
-            "-disposition:v", "attached_pic",
-            "-metadata:s:v", "title=Album cover",
-            "-metadata:s:v", "comment=Cover (front)",
-            output_file
+            ffmpeg,
+            "-y",
+            "-v",
+            "error",
+            "-i",
+            audio_file,
+            "-i",
+            cover_file,
+            "-map",
+            "0:a",
+            "-map",
+            "1:v",
+            "-c:a",
+            "copy",
+            "-c:v",
+            "mjpeg",
+            "-disposition:v",
+            "attached_pic",
+            "-metadata:s:v",
+            "title=Album cover",
+            "-metadata:s:v",
+            "comment=Cover (front)",
+            output_file,
         ]
         result = subprocess.run(cmd, capture_output=True, timeout=60)
         if result.returncode == 0:
@@ -334,38 +383,3 @@ def embed_cover_art(audio_file: str, cover_data: bytes, mime_type: str = "image/
             os.unlink(cover_file)
         except OSError:
             pass
-
-
-def generate_vinyl_positions(tracklist: list[dict[str, Any]]) -> list[str]:
-    """
-    Generate vinyl-style track positions (A1, A2, B1, B2, etc.) from Discogs tracklist.
-    Handles sub-tracks (A1.a, A1.b) by collapsing them.
-    """
-    positions = []
-    side = 'A'
-    track_num = 1
-
-    for track in tracklist:
-        pos = track.get("position", "").strip()
-
-        if not pos:
-            positions.append(f"{side}{track_num}")
-            track_num += 1
-            continue
-
-        match = re.match(r'^([A-D])(\d+)', pos.upper())
-        if match:
-            new_side = match.group(1)
-            new_num = int(match.group(2))
-            if new_side != side:
-                side = new_side
-                track_num = new_num
-            else:
-                track_num = new_num
-            positions.append(f"{side}{track_num}")
-        else:
-            positions.append(f"{side}{track_num}")
-            track_num += 1
-
-    return positions
-

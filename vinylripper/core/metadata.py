@@ -20,7 +20,7 @@ class AlbumMetadata:
     def get_vinyl_positions(self) -> list[str]:
         """Generate vinyl-style track positions (A1, A2, B1, B2) from tracklist."""
         positions = []
-        side = 'A'
+        side = "A"
         track_num = 1
 
         for track in self.tracklist:
@@ -31,7 +31,7 @@ class AlbumMetadata:
                 track_num += 1
                 continue
 
-            match = re.match(r'^([A-D])(\d+)', pos.upper())
+            match = re.match(r"^([A-D])(\d+)", pos.upper())
             if match:
                 new_side = match.group(1)
                 new_num = int(match.group(2))
