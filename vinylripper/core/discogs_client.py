@@ -175,7 +175,7 @@ class DiscogsClient:
             "per_page": per_page,
             "type": "release",
         }
-        r = self._http.get(f"{API_BASE}/database/search", params=params)
+        r = self._http.get(f"{API_BASE}/database/search", params=params, timeout=15)
         r.raise_for_status()
         body = r.json()
         results = [DiscogsSearchResult(item) for item in body.get("results", [])]
@@ -246,7 +246,7 @@ class DiscogsClient:
         return self._get_release_requests(release_id)
 
     def _get_release_requests(self, release_id):
-        r = self._http.get(f"{API_BASE}/releases/{release_id}")
+        r = self._http.get(f"{API_BASE}/releases/{release_id}", timeout=15)
         r.raise_for_status()
         return r.json()
 
