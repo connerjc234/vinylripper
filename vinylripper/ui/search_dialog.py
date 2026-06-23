@@ -194,6 +194,16 @@ class SearchDialog(QDialog):
         self._save_token_btn = QPushButton("Save Token")
         self._save_token_btn.clicked.connect(self._save_token)
         self._token_layout.addWidget(self._save_token_btn)
+
+        self._token_status = QLabel("Discogs token ✅")
+        self._token_status.setStyleSheet("color: #4caf50; font-weight: bold;")
+        self._token_layout.addWidget(self._token_status)
+
+        self._change_token_btn = QPushButton("Change")
+        self._change_token_btn.setFixedWidth(80)
+        self._change_token_btn.clicked.connect(self._change_token)
+        self._token_layout.addWidget(self._change_token_btn)
+
         layout.addLayout(self._token_layout)
 
         self._hint = QLabel(
@@ -243,6 +253,25 @@ class SearchDialog(QDialog):
 
         layout.addLayout(btn_row)
 
+    def _cleanup_threads(self):
+        """Safely stop and clean up any running threads."""
+        for t in [self._search_thread, self._detail_thread]:
+            if t is None:
+                continue
+            try:
+                t.quit()
+                if not t.wait(5000):
+                    t.terminate()
+                    t.wait()
+            except Exception:
+                pass
+        self._search_thread = None
+        self._detail_thread = None
+
+    def reject(self):
+        self._cleanup_threads()
+        super().reject()
+
     def _load_token(self):
         cfg = load_config()
         token = cfg.get("discogs_token", "")
@@ -252,6 +281,10 @@ class SearchDialog(QDialog):
             self._token_input.setVisible(False)
             self._save_token_btn.setVisible(False)
             self._hint.setVisible(False)
+            self._token_status.setText("Discogs token ✅")
+        else:
+            self._token_status.setVisible(False)
+            self._change_token_btn.setVisible(False)
 
     def _save_token(self):
         token = self._token_input.text().strip()
@@ -262,8 +295,23 @@ class SearchDialog(QDialog):
             return
         save_config({"discogs_token": token})
         self._init_client(token)
+        self._show_token_configured()
+
+    def _show_token_configured(self):
         self._token_input.setVisible(False)
         self._save_token_btn.setVisible(False)
+        self._hint.setVisible(False)
+        self._token_status.setText("Discogs token ✅")
+        self._token_status.setVisible(True)
+        self._change_token_btn.setVisible(True)
+
+    def _change_token(self):
+        self._token_status.setVisible(False)
+        self._change_token_btn.setVisible(False)
+        self._token_input.setVisible(True)
+        self._save_token_btn.setVisible(True)
+        self._hint.setVisible(True)
+        self._token_input.setFocus()
 
     def _init_client(self, token):
         self._client = DiscogsClient(token)
