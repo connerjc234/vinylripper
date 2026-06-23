@@ -27,3 +27,12 @@ Thumbs.db
 
 # Config (user-specific)
 ~/.config/vinylripper/.omo/
+
+# OpenCode metadata
+.omo/
+
+# Build artifacts (AppImage extraction)
+squashfs-root/
+
+# Generated assets
+vinylripper_ad_bloom.jpg
