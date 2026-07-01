@@ -19,9 +19,9 @@
   <meta property="og:site_name" content="VinylRipper">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VinylRipper — Digitize Your Vinyl Collection">
-  <meta name="twitter:description" content="Record, split, and export your vinyl collection to FLAC/MP3/AIFF with automatic Discogs metadata lookup and vinyl-style numbering.">
+  <meta name="twitter:description" content="Record, split, and export your vinyl to FLAC/MP3/AIFF with automatic Discogs metadata, vinyl-style numbering (A1/A2/B1/B2), and cover art. Free &amp; open source.">
   <meta name="twitter:image" content="https://connerjc234.github.io/vinylripper/social-preview.png">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VinylRipper","operatingSystem":"Linux, macOS, Windows","applicationCategory":"Multimedia","description":"Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), Discogs metadata lookup, and multi-format export (FLAC/MP3/AIFF).","url":"https://connerjc234.github.io/vinylripper/","downloadUrl":"https://github.com/connerjc234/vinylripper","softwareVersion":"0.6.0","license":"https://github.com/connerjc234/vinylripper/blob/main/LICENSE","author":{"@type":"Person","name":"connerjc234","url":"https://github.com/connerjc234"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"VinylRipper","operatingSystem":"Linux, macOS, Windows","applicationCategory":"Multimedia","applicationSubCategory":"Audio Recorder","description":"Record your vinyl collection to digital with live waveform preview, automatic silence detection, vinyl-style track numbering (A1/A2/B1/B2), Discogs metadata lookup, and multi-format export (FLAC/MP3/AIFF).","url":"https://connerjc234.github.io/vinylripper/","downloadUrl":"https://github.com/connerjc234/vinylripper","softwareVersion":"0.6.0","license":"https://github.com/connerjc234/vinylripper/blob/main/LICENSE","author":{"@type":"Person","name":"connerjc234","url":"https://github.com/connerjc234"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Live waveform recording from any input device","Automatic silence detection for track splitting","Discogs metadata lookup with cover art","Vinyl-style track numbering (A1/A2/B1/B2)","Multi-format export: FLAC, MP3, AIFF","Audio restoration: highpass filter, declicking, denoising","Interactive waveform editor with undo/redo","Cross-platform: Linux, macOS, Windows"],"screenshot":"https://connerjc234.github.io/vinylripper/social-preview.png"},{"@type":"WebPage","name":"VinylRipper \u2014 Digitize Your Vinyl Collection","description":"Free, open-source desktop app to digitize vinyl records. Record, auto-split tracks, and export to FLAC/MP3/AIFF with Discogs metadata.","url":"https://connerjc234.github.io/vinylripper/","inLanguage":"en-US","speakable":{"@type":"SpeakableSpecification","cssSelector":["h1",".hero-text p",".section-sub",".faq-answer"]}},{"@type":"Organization","name":"VinylRipper","url":"https://connerjc234.github.io/vinylripper/","description":"Free and open-source vinyl digitization software.","sameAs":["https://github.com/connerjc234/vinylripper"]},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What hardware do I need to use VinylRipper?","acceptedAnswer":{"@type":"Answer","text":"VinylRipper works with any USB turntable or audio interface that your computer recognizes as an input device. This includes popular models from Audio-Technica, Pioneer, Sony, and any standard turntable connected through a USB audio interface. No specialized hardware is required beyond the turntable itself."}},{"@type":"Question","name":"Does VinylRipper work on Apple Silicon (M1/M2/M3) Macs?","acceptedAnswer":{"@type":"Answer","text":"Yes, VinylRipper runs natively on Apple Silicon Macs via Homebrew and Python. The macOS build supports both Apple Silicon and Intel architectures. FFmpeg and PortAudio are required and can be installed through Homebrew."}},{"@type":"Question","name":"What audio formats and quality options does VinylRipper support?","acceptedAnswer":{"@type":"Answer","text":"VinylRipper supports three output formats: FLAC with 9 compression levels (0\u20138) for lossless archival, MP3 with 10 VBR quality levels (0\u20139) for space-efficient storage, and AIFF at 16/24/32-bit depth. Recording is done at your hardware\u2019s native sample rate, supporting up to 192 kHz through compatible audio interfaces."}},{"@type":"Question","name":"How does VinylRipper handle multi-side vinyl records?","acceptedAnswer":{"@type":"Answer","text":"VinylRipper supports recording both sides of a record with automatic side detection. After the first side finishes, it enters a monitoring mode that waits for you to flip the record and drop the needle. It automatically detects the needle drop and continues recording the next side with proper A1/A2/B1/B2 vinyl-style track numbering."}},{"@type":"Question","name":"Can I edit track splits after recording?","acceptedAnswer":{"@type":"Answer","text":"Yes, VinylRipper provides an interactive waveform editor where you can drag split markers to adjust track boundaries. Double-click anywhere on the waveform to add a new marker. Undo and redo changes with Ctrl+Z/Ctrl+Y. Zoom with the scroll wheel and pan when zoomed. Automatic silence detection also suggests split points based on adjustable sensitivity and minimum gap settings."}},{"@type":"Question","name":"Is VinylRipper really free and open source?","acceptedAnswer":{"@type":"Answer","text":"Yes, VinylRipper is completely free and open source under the MIT License. There are no paid tiers, no feature restrictions, no ads, and no data collection. The entire source code is available on GitHub. The only external service used is the Discogs API for metadata lookup, which requires a free Discogs account and a personal access token."}}]}]}</script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23050505' stroke='%23f2b745' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='14' fill='%23f2b745'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%23050505'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1112,6 +1112,88 @@
       .bento-card, .bento-card.wide, .bento-card.full, .bento-card.slim { grid-column: span 6; }
     }
 
+    /* ─── FAQ ─── */
+    #faq {
+      background: linear-gradient(180deg, rgba(11, 11, 15, 0.3) 0%, transparent 100%);
+    }
+
+    .faq-list {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .faq-item {
+      border-radius: 16px;
+      background: var(--chassis-elevated);
+      border: 1px solid var(--hairline);
+      overflow: hidden;
+      transition: border-color 0.4s var(--spring);
+    }
+
+    .faq-item:hover {
+      border-color: var(--hairline-strong);
+    }
+
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 18px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      color: var(--text);
+      font-family: 'Geist', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-align: left;
+      line-height: 1.4;
+      transition: color 0.3s var(--spring);
+      gap: 12px;
+    }
+
+    .faq-question:hover { color: var(--amber); }
+
+    .faq-chevron {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      transition: transform 0.4s var(--spring);
+      color: var(--text-muted);
+    }
+
+    .faq-item.open .faq-chevron {
+      transform: rotate(180deg);
+      color: var(--amber);
+    }
+
+    .faq-answer {
+      padding: 0 22px 18px;
+      font-size: 0.84rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+      display: none;
+    }
+
+    .faq-item.open .faq-answer {
+      display: block;
+    }
+
+    .faq-answer a {
+      color: var(--amber);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s var(--spring);
+    }
+
+    .faq-answer a:hover {
+      border-bottom-color: var(--amber);
+    }
+
     @media (max-width: 768px) {
       nav {
         padding: 6px 14px;
@@ -1168,6 +1250,7 @@
     <div class="nav-desktop">
       <a href="#features">Features</a>
       <a href="#how">How It Works</a>
+      <a href="#faq">FAQ</a>
       <a href="#install">Install</a>
       <a href="https://github.com/connerjc234/vinylripper" class="nav-gh" target="_blank" rel="noopener">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844a9.59 9.59 0 012.5.338c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
@@ -1185,6 +1268,7 @@
   <div class="nav-overlay" id="navOverlay" role="dialog" aria-modal="true" aria-label="Navigation menu">
     <a href="#features">Features</a>
     <a href="#how">How It Works</a>
+    <a href="#faq">FAQ</a>
     <a href="#install">Install</a>
     <a href="https://github.com/connerjc234/vinylripper" target="_blank" rel="noopener">GitHub</a>
   </div>
@@ -1207,8 +1291,8 @@
           you<br>
           own
         </h1>
-        <p>Record your vinyl collection to high-res digital audio with automatic track detection, Discogs metadata, and multi-format export.</p>
-        <p class="hero-footnote">Requires a USB turntable or audio interface. Free and open source.</p>
+        <p>Record your vinyl collection to high-res digital audio with automatic silence detection, Discogs metadata lookup (powered by the Discogs API, cataloging over 14 million releases), and multi-format export to FLAC, MP3, or AIFF. Free and open source under the MIT license.</p>
+        <p class="hero-footnote">Works with any USB turntable or audio interface — no proprietary hardware required.</p>
         <div class="hero-btns">
           <a href="#install" class="btn btn-primary">
             Get Started
@@ -1334,7 +1418,7 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>
               </div>
               <h3>Audio Restoration</h3>
-              <p>Highpass rumble filter (30Hz) and declicking via FFmpeg. Clean up pops and rumble before export.</p>
+              <p>Highpass rumble filter (30Hz), declicking, and adaptive noise reduction via FFmpeg's industry-standard audio processing. Clean up pops, rumble, and surface noise before export.</p>
             </div>
           </div>
         </div>
@@ -1516,6 +1600,77 @@
     </div>
   </section>
 
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="container">
+      <span class="eyebrow">FAQ</span>
+      <h2 class="section-title">Frequently asked questions</h2>
+      <p class="section-sub">Everything you need to know about getting started with VinylRipper.</p>
+
+      <div class="faq-list" itemscope="" itemtype="https://schema.org/FAQPage">
+        <div class="faq-item db-shell" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            What hardware do I need to use VinylRipper?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">VinylRipper works with any USB turntable or audio interface that your computer recognizes as an input device. This includes popular models from Audio-Technica, Pioneer, Sony, and any standard turntable connected through a USB audio interface. No specialized hardware is required beyond the turntable itself.</p>
+          </div>
+        </div>
+
+        <div class="faq-item db-shell reveal" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            Does VinylRipper work on Apple Silicon (M1/M2/M3) Macs?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">Yes, VinylRipper runs natively on Apple Silicon Macs via Homebrew and Python. The macOS build supports both Apple Silicon and Intel architectures. FFmpeg and PortAudio are required and can be installed through Homebrew.</p>
+          </div>
+        </div>
+
+        <div class="faq-item db-shell reveal reveal-d1" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            What audio formats and quality options does VinylRipper support?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">VinylRipper supports three output formats: <strong>FLAC</strong> with 9 compression levels (0–8) for lossless archival, <strong>MP3</strong> with 10 VBR quality levels (0–9) for space-efficient storage, and <strong>AIFF</strong> at 16/24/32-bit depth. Recording is done at your hardware&rsquo;s native sample rate, supporting up to 192 kHz through compatible audio interfaces.</p>
+          </div>
+        </div>
+
+        <div class="faq-item db-shell reveal reveal-d2" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            How does VinylRipper handle multi-side vinyl records?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">VinylRipper supports recording both sides of a record with automatic side detection. After the first side finishes, it enters a monitoring mode that waits for you to flip the record and drop the needle. It automatically detects the needle drop and continues recording the next side with proper A1/A2/B1/B2 vinyl-style track numbering.</p>
+          </div>
+        </div>
+
+        <div class="faq-item db-shell reveal reveal-d3" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            Can I edit track splits after recording?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">Yes, VinylRipper provides an interactive waveform editor where you can drag split markers to adjust track boundaries. Double-click anywhere on the waveform to add a new marker. Undo and redo changes with Ctrl+Z/Ctrl+Y. Zoom with the scroll wheel and pan when zoomed. Automatic silence detection also suggests split points based on adjustable sensitivity and minimum gap settings.</p>
+          </div>
+        </div>
+
+        <div class="faq-item db-shell reveal reveal-d4" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
+          <button class="faq-question" itemprop="name">
+            Is VinylRipper really free and open source?
+            <svg class="faq-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="faq-answer" itemscope="" itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+            <p itemprop="text">Yes, VinylRipper is completely free and open source under the MIT License. There are no paid tiers, no feature restrictions, no ads, and no data collection. The entire source code is available on <a href="https://github.com/connerjc234/vinylripper" target="_blank" rel="noopener">GitHub</a>. The only external service used is the Discogs API for metadata lookup, which requires a free Discogs account and a personal access token.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer>
     <p>Built with Python, PyQt6, and FFmpeg &nbsp;·&nbsp; <a href="https://github.com/connerjc234/vinylripper" target="_blank" rel="noopener">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/connerjc234/vinylripper/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></p>
@@ -1617,6 +1772,18 @@
         btn.classList.add('active');
         btn.setAttribute('aria-selected', 'true');
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // FAQ accordion
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.faq-item');
+        const isOpen = item.classList.contains('open');
+        // Close all others
+        document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+        // Toggle this one
+        if (!isOpen) item.classList.add('open');
       });
     });
   </script>
