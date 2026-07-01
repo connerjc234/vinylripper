@@ -7,7 +7,7 @@ include = ["vinylripper", "vinylripper.*"]
 
 [project]
 name = "vinylripper"
-version = "0.4.0"
+version = "0.6.0"
 description = "Digitize vinyl records — record, auto-split tracks, and fetch Discogs metadata"
 requires-python = ">=3.11"
 dependencies = [
