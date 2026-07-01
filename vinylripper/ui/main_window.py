@@ -7,13 +7,10 @@ from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
-    QHBoxLayout,
-    QLabel,
     QMainWindow,
     QMessageBox,
-    QPushButton,
-    QSlider,
     QStatusBar,
+    QTabWidget,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -25,11 +22,16 @@ from vinylripper.core.audio_processor import (
     split_audio_ffmpeg,
 )
 from vinylripper.core.config import get_config
+from vinylripper.core.needle_detector import NeedleDetector
 from vinylripper.core.recorder import Recorder
 from vinylripper.core.splitter import detect_silence_splits
+from vinylripper.core.states import RecordingSession, RecordingState
 from vinylripper.ui.search_dialog import SearchDialog
 from vinylripper.ui.settings_dialog import SettingsDialog
-from vinylripper.ui.waveform_widget import WaveformWidget
+from vinylripper.ui.tabs.check_level_tab import CheckLevelTab
+from vinylripper.ui.tabs.cleanup_audio_tab import CleanupAudioTab
+from vinylripper.ui.tabs.recording_tab import RecordingTab
+from vinylripper.ui.tabs.split_tracks_tab import SplitTracksTab
 
 STYLE = """
 QMainWindow {
@@ -101,6 +103,30 @@ QStatusBar {
 QStatusBar::item {
     border: none;
 }
+QTabWidget::pane {
+    border: 1px solid #3a3a48;
+    background-color: #1a1a20;
+}
+QTabBar::tab {
+    background-color: #2a2a35;
+    color: #a0a0b0;
+    border: 1px solid #3a3a48;
+    border-bottom: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    padding: 6px 16px;
+    margin-right: 2px;
+    font-weight: bold;
+}
+QTabBar::tab:selected {
+    background-color: #1a1a20;
+    color: #d0d0d8;
+    border-bottom: 1px solid #1a1a20;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #353548;
+    border-color: #4a4a5a;
+}
 """
 
 
@@ -117,6 +143,9 @@ class MainWindow(QMainWindow):
         self._config = get_config()
         self.resize(self._config.window_width, self._config.window_height)
 
+        # Session — shared state across all tabs
+        self._session = RecordingSession()
+
         self._recorder = Recorder()
         self._recording = False
         self._recorded_data = None
@@ -131,6 +160,33 @@ class MainWindow(QMainWindow):
         self._resume_timer = QTimer()
         self._resume_timer.setInterval(1000)
         self._resume_timer.timeout.connect(self._try_resume_recording)
+
+        # Non-blocking calibration
+        self._calibration_recorder: Recorder | None = None
+        self._calibration_buffer: list[np.ndarray] = []
+        self._calibration_timer = QTimer()
+        self._calibration_timer.setSingleShot(True)
+        self._calibration_timer.timeout.connect(self._finish_calibration)
+
+        # Pre-recording countdown timer (used only before initial recording)
+        self._countdown_timer = QTimer()
+        self._countdown_timer.setInterval(1000)
+        self._countdown_timer.timeout.connect(self._countdown_tick)
+        self._countdown_remaining = 0
+        self._pending_recording_data: dict | None = None
+
+        # Flip monitoring recorder — runs while the main recorder is paused,
+        # waiting for the needle to drop on the next side
+        self._flip_monitor_recorder: Recorder | None = None
+
+        # Grace period after flip — prevents side-end detection from
+        # immediately re-triggering while the user is dropping the needle
+        self._flip_grace_timer = QTimer()
+        self._flip_grace_timer.setSingleShot(True)
+        self._flip_grace_timer.timeout.connect(self._end_flip_grace)
+
+        # Needle-down detector (populated by calibration)
+        self._needle_detector = NeedleDetector()
 
         self._processing_thread = None
         self._cancel_event = threading.Event()
@@ -150,7 +206,116 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # Toolbar
+        # Undo/Redo actions — created early so menus can reference them
+        self._undo_action = QAction("Undo", self)
+        self._undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        self._undo_action.triggered.connect(self._undo)
+        self._undo_action.setEnabled(False)
+
+        self._redo_action = QAction("Redo", self)
+        self._redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        self._redo_action.triggered.connect(self._redo)
+        self._redo_action.setEnabled(False)
+
+        # ── Menu Bar ──────────────────────────────────────────────
+        menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #141418;
+                border-bottom: 1px solid #2a2a32;
+                padding: 2px;
+            }
+            QMenuBar::item {
+                color: #a0a0b0;
+                padding: 4px 10px;
+                border-radius: 4px;
+            }
+            QMenuBar::item:selected {
+                background-color: #2a2a35;
+                color: #d0d0d8;
+            }
+            QMenu {
+                background-color: #1a1a20;
+                border: 1px solid #3a3a48;
+                padding: 4px;
+            }
+            QMenu::item {
+                color: #d0d0d8;
+                padding: 4px 20px;
+                border-radius: 3px;
+            }
+            QMenu::item:selected {
+                background-color: #2a2a35;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #3a3a48;
+                margin: 4px 8px;
+            }
+        """)
+
+        # File menu
+        file_menu = menubar.addMenu("File")
+        file_open_action = QAction("Open Session...", self)
+        file_open_action.setEnabled(False)
+        file_menu.addAction(file_open_action)
+        file_save_action = QAction("Save Session...", self)
+        file_save_action.setEnabled(False)
+        file_menu.addAction(file_save_action)
+        file_menu.addSeparator()
+        self._export_all_action = QAction("Export All", self)
+        self._export_all_action.triggered.connect(self._split_recording)
+        file_menu.addAction(self._export_all_action)
+        self._export_sel_action = QAction("Export Selected", self)
+        self._export_sel_action.setEnabled(False)
+        file_menu.addAction(self._export_sel_action)
+        file_menu.addSeparator()
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+
+        # Edit menu
+        edit_menu = menubar.addMenu("Edit")
+        edit_menu.addAction(self._undo_action)
+        edit_menu.addAction(self._redo_action)
+        edit_menu.addSeparator()
+        settings_edit_action = QAction("Settings / Preferences...", self)
+        settings_edit_action.triggered.connect(self._show_settings)
+        edit_menu.addAction(settings_edit_action)
+
+        # View menu — tab navigation
+        view_menu = menubar.addMenu("View")
+        view_check = QAction("Check Level", self)
+        view_check.triggered.connect(lambda: self._tabs.setCurrentIndex(0))
+        view_menu.addAction(view_check)
+        view_recording = QAction("Recording Options", self)
+        view_recording.triggered.connect(lambda: self._tabs.setCurrentIndex(1))
+        view_menu.addAction(view_recording)
+        view_split = QAction("Split Tracks", self)
+        view_split.triggered.connect(lambda: self._tabs.setCurrentIndex(2))
+        view_menu.addAction(view_split)
+        view_cleanup = QAction("Cleanup Audio", self)
+        view_cleanup.triggered.connect(lambda: self._tabs.setCurrentIndex(3))
+        view_menu.addAction(view_cleanup)
+
+        # Tools menu
+        tools_menu = menubar.addMenu("Tools")
+        cal_action = QAction("Calibrate Needle-Down", self)
+        cal_action.triggered.connect(self._start_calibration)
+        tools_menu.addAction(cal_action)
+        tools_menu.addSeparator()
+        tools_settings_action = QAction("Settings...", self)
+        tools_settings_action.triggered.connect(self._show_settings)
+        tools_menu.addAction(tools_settings_action)
+
+        # Help menu
+        help_menu = menubar.addMenu("Help")
+        about_action = QAction("About VinylRipper", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+
+        # ── Toolbar ──────────────────────────────────────────────
         toolbar = QToolBar()
         toolbar.setMovable(False)
         toolbar.setStyleSheet("""
@@ -179,16 +344,7 @@ class MainWindow(QMainWindow):
         """)
         self.addToolBar(toolbar)
 
-        self._undo_action = QAction("Undo", self)
-        self._undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        self._undo_action.triggered.connect(self._undo)
-        self._undo_action.setEnabled(False)
         toolbar.addAction(self._undo_action)
-
-        self._redo_action = QAction("Redo", self)
-        self._redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        self._redo_action.triggered.connect(self._redo)
-        self._redo_action.setEnabled(False)
         toolbar.addAction(self._redo_action)
 
         toolbar.addSeparator()
@@ -215,118 +371,296 @@ class MainWindow(QMainWindow):
         )
         toolbar.addWidget(self._output_quality_combo)
 
-        toolbar.addSeparator()
+        # ── Tab Widget ───────────────────────────────────────────
+        self._tabs = QTabWidget()
+        self._tabs.setDocumentMode(True)
 
-        self._restoration_combo = QComboBox()
-        self._restoration_combo.addItems(
-            ["None", "Highpass (rumble)", "Highpass + Declick"]
+        # Tab 0: Check Level
+        self._check_tab = CheckLevelTab()
+        self._check_tab.set_session(self._session)
+        self._check_tab.calibration_requested.connect(self._start_calibration)
+        self._check_tab.device_changed.connect(self._on_device_changed)
+        self._tabs.addTab(self._check_tab, "Check Level")
+
+        # Tab 1: Recording Options
+        self._recording_tab = RecordingTab()
+        self._recording_tab.set_session(self._session)
+        self._recording_tab.record_toggled.connect(self._toggle_recording)
+        self._recording_tab.discogs_search_requested.connect(self._search_discogs)
+        self._tabs.addTab(self._recording_tab, "Recording Options")
+
+        # Tab 2: Split Tracks
+        self._split_tab = SplitTracksTab()
+        self._split_tab.set_session(self._session)
+        self._split_tab.split_export_requested.connect(self._split_recording)
+        self._split_tab.save_requested.connect(self._save_recording)
+        self._split_tab.threshold_slider.valueChanged.connect(
+            self._on_threshold_changed
         )
-        self._restoration_combo.setCurrentIndex(self._config.default_restoration_level)
-        self._restoration_combo.setFixedWidth(160)
-        toolbar.addWidget(self._restoration_combo)
+        self._split_tab.gap_slider.valueChanged.connect(self._on_duration_changed)
+        self._split_tab.waveform.markers_changed.connect(self._on_markers_changed)
+        self._tabs.addTab(self._split_tab, "Split Tracks")
 
-        self._waveform = WaveformWidget()
-        self._waveform.markers_changed.connect(self._on_markers_changed)
-        layout.addWidget(self._waveform, 1)
+        # Tab 3: Cleanup Audio
+        self._cleanup_tab = CleanupAudioTab()
+        self._cleanup_tab.process_requested.connect(self._process_cleanup)
+        self._cleanup_tab.preview_btn.clicked.connect(self._play_before_cleanup)
+        self._cleanup_tab.preview_after_btn.clicked.connect(self._play_after_cleanup)
+        self._tabs.addTab(self._cleanup_tab, "Cleanup Audio")
 
-        controls = QHBoxLayout()
-        controls.setSpacing(8)
+        layout.addWidget(self._tabs, 1)
 
-        self._record_btn = QPushButton("Record")
-        self._record_btn.setFixedHeight(32)
-        self._record_btn.clicked.connect(self._toggle_recording)
-        controls.addWidget(self._record_btn)
+        # ── Backward-compat widget references ────────────────────
+        self._device_combo = self._check_tab.device_combo
+        self._waveform = self._split_tab.waveform  # main waveform for undo/redo/split
 
-        self._save_btn = QPushButton("Save As...")
-        self._save_btn.setFixedHeight(32)
-        self._save_btn.setEnabled(False)
-        self._save_btn.clicked.connect(self._save_recording)
-        controls.addWidget(self._save_btn)
-
-        self._split_btn = QPushButton("Split & Export")
-        self._split_btn.setFixedHeight(32)
-        self._split_btn.setEnabled(False)
-        self._split_btn.clicked.connect(self._split_recording)
-        controls.addWidget(self._split_btn)
-
-        self._metadata_label = QLabel()
-        controls.addWidget(self._metadata_label, 1)
-
-        controls.addSpacing(12)
-
-        label = QLabel("Input Device")
-        controls.addWidget(label)
-
-        self._device_combo = QComboBox()
-        self._device_combo.setFixedHeight(30)
-        controls.addWidget(self._device_combo, 1)
-
-        layout.addLayout(controls)
-
-        split_row = QHBoxLayout()
-        split_row.setSpacing(8)
-
-        self._threshold_label = QLabel("Silence:")
-        split_row.addWidget(self._threshold_label)
-        self._less_label = QLabel("Fine")
-        self._less_label.setStyleSheet("color: #666; font-size: 10px;")
-        split_row.addWidget(self._less_label)
-        self._threshold_slider = QSlider(Qt.Orientation.Horizontal)
-        self._threshold_slider.setRange(20, 60)
-        self._threshold_slider.setValue(int(-self._config.silence_threshold_db))
-        self._threshold_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self._threshold_slider.setTickInterval(5)
-        self._threshold_slider.valueChanged.connect(self._on_threshold_changed)
-        split_row.addWidget(self._threshold_slider, 1)
-        self._more_label = QLabel("Strict")
-        self._more_label.setStyleSheet("color: #666; font-size: 10px;")
-        split_row.addWidget(self._more_label)
-
-        split_row.addSpacing(16)
-
-        self._duration_label = QLabel("Min Gap:")
-        split_row.addWidget(self._duration_label)
-        self._short_label = QLabel("Short")
-        self._short_label.setStyleSheet("color: #666; font-size: 10px;")
-        split_row.addWidget(self._short_label)
-        self._duration_slider = QSlider(Qt.Orientation.Horizontal)
-        self._duration_slider.setRange(100, 5000)
-        self._duration_slider.setValue(int(self._config.min_silence_duration * 1000))
-        self._duration_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self._duration_slider.setTickInterval(500)
-        self._duration_slider.valueChanged.connect(self._on_duration_changed)
-        split_row.addWidget(self._duration_slider, 1)
-        self._long_label = QLabel("Long")
-        self._long_label.setStyleSheet("color: #666; font-size: 10px;")
-        split_row.addWidget(self._long_label)
-
-        self._split_status = QLabel("Ready — record to preview splits")
-        self._split_status.setStyleSheet("color: #666;")
-        split_row.addWidget(self._split_status, 1)
-
-        layout.addLayout(split_row)
-
+        # ── Status Bar ───────────────────────────────────────────
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status.showMessage("Ready")
 
+    # ── Signal wiring helpers ──────────────────────────────────
+
+    def _on_device_changed(self, device_idx: int):
+        """Handle device selection change from CheckLevelTab."""
+        self._session.device_id = device_idx
+
+    def _start_calibration(self):
+        """Start non-blocking calibration of noise floor for needle-down detection."""
+        idx = self._check_tab.device_combo.currentData()
+        devices = getattr(self._check_tab, "_devices", None)
+        if devices is None or idx is None or idx >= len(devices):
+            self._status.showMessage("No valid input device selected")
+            return
+
+        self._session.state = RecordingState.CALIBRATING
+        self._update_tabs_state()
+        device_info = devices[idx]
+        self._status.showMessage("Calibrating noise floor... (5 seconds)")
+
+        sr = int(device_info["default_samplerate"])
+        self._calibration_recorder = Recorder(
+            device=str(device_info["name"]),
+            samplerate=sr,
+            channels=min(2, device_info["max_input_channels"]),
+        )
+        self._calibration_buffer = []
+        self._session.samplerate = sr
+        self._calibration_recorder.start()
+        self._calibration_timer.start(5000)  # 5 seconds
+
+    def _finish_calibration(self):
+        """Finish calibration: compute noise floor from buffered audio."""
+        cal_recorder = self._calibration_recorder
+        self._calibration_recorder = None
+
+        if cal_recorder:
+            cal_recorder.stop()
+
+        if self._calibration_buffer:
+            data = np.concatenate(self._calibration_buffer)
+        else:
+            data = None
+
+        if data is not None and len(data) > 0:
+            sr = self._session.samplerate or 44100
+            detector = NeedleDetector(samplerate=sr)
+            detector.calibrate(data)
+            self._session.noise_floor_rms = detector.noise_floor_rms
+            self._session.noise_floor_peak = detector.noise_floor_peak
+            self._session.calibrated = True
+            self._needle_detector = detector
+            self._session.state = RecordingState.CALIBRATED
+            self._check_tab.set_session(self._session)
+            self._recording_tab.set_session(self._session)
+            self._status.showMessage(
+                "Calibration complete — drop the needle to auto-start"
+            )
+            self._calibration_buffer = []
+
+            # Start monitoring for needle drop
+            if cal_recorder:
+                self._recorder = Recorder(
+                    device=cal_recorder.device,
+                    samplerate=sr,
+                    channels=cal_recorder.channels,
+                )
+                self._recorder.start()
+        else:
+            self._session.state = RecordingState.IDLE
+            self._status.showMessage("Calibration failed — no audio data")
+
+        self._update_tabs_state()
+
+    def _update_tabs_state(self):
+        """Push current session state to all tabs."""
+        state = self._session.state
+        self._check_tab.update_state(state)
+        self._recording_tab.update_state(state)
+        self._split_tab.update_state(state)
+
+        # Enable cleanup tab buttons when recorded audio is available
+        has_data = (
+            self._recorded_data is not None
+            and len(self._recorded_data) > 0
+            and state == RecordingState.STOPPED
+        )
+        self._cleanup_tab.preview_btn.setEnabled(has_data)
+        self._cleanup_tab.preview_after_btn.setEnabled(has_data)
+        self._cleanup_tab.process_btn.setEnabled(has_data)
+
+    def _get_restoration_level(self) -> int:
+        """Derive restoration level from CleanupAudioTab settings.
+
+        Returns:
+            0 = None, 1 = Highpass only, 2 = Highpass + Declick
+        """
+        settings = self._cleanup_tab.get_settings()
+        hp = settings.get("highpass", {}).get("enabled", False)
+        dc = settings.get("declick", {}).get("enabled", False)
+        if hp and dc:
+            return 2
+        if hp:
+            return 1
+        return 0
+
+    # ── Cleanup Audio handlers ────────────────────────────────
+
+    def _play_before_cleanup(self):
+        """Play a short segment of the original (unprocessed) recording."""
+        if self._recorded_data is None or len(self._recorded_data) == 0:
+            return
+        import sounddevice as sd
+
+        sr = self._session.samplerate or 44100
+        segment_dur = 5  # seconds
+        n_samples = min(int(sr * segment_dur), len(self._recorded_data))
+        segment = self._recorded_data[:n_samples]
+        sd.play(segment, sr)
+        self._status.showMessage("Playing original audio...")
+
+    def _play_after_cleanup(self):
+        """Play a short segment of the recording with restoration applied."""
+        if self._recorded_data is None or len(self._recorded_data) == 0:
+            return
+        import sounddevice as sd
+        import soundfile as sf
+
+        sr = self._session.samplerate or 44100
+        segment_dur = 5  # seconds
+        n_samples = min(int(sr * segment_dur), len(self._recorded_data))
+        segment = self._recorded_data[:n_samples]
+
+        import tempfile
+
+        # Write the segment to a temp file
+        in_path = tempfile.mktemp(suffix=".wav")
+        out_path = tempfile.mktemp(suffix=".wav")
+        try:
+            sf.write(in_path, segment, sr)
+            settings = self._cleanup_tab.get_settings()
+            from vinylripper.core.audio_processor import apply_restoration
+
+            if apply_restoration(in_path, out_path, settings, samplerate=sr):
+                processed_data, _ = sf.read(out_path, dtype="float32")
+                sd.play(processed_data, sr)
+                self._status.showMessage("Playing processed audio...")
+            else:
+                self._status.showMessage("Processing failed — check FFmpeg")
+        finally:
+            import os
+
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+    def _process_cleanup(self):
+        """Apply restoration settings to the full recording in-place."""
+        if self._recorded_data is None or len(self._recorded_data) == 0:
+            return
+        import soundfile as sf
+
+        sr = self._session.samplerate or 44100
+        self._session.state = RecordingState.PROCESSING
+        self._update_tabs_state()
+        self._status.showMessage("Processing audio...")
+
+        import tempfile
+
+        in_path = tempfile.mktemp(suffix=".wav")
+        out_path = tempfile.mktemp(suffix=".wav")
+        try:
+            sf.write(in_path, self._recorded_data, sr)
+            settings = self._cleanup_tab.get_settings()
+            from vinylripper.core.audio_processor import apply_restoration
+
+            if apply_restoration(in_path, out_path, settings, samplerate=sr):
+                processed_data, _ = sf.read(out_path, dtype="float32")
+                self._recorded_data = processed_data
+                self._session.recorded_data = processed_data
+                self._session.state = RecordingState.STOPPED
+
+                # Reload into SplitTracksTab waveform
+                self._split_tab.set_full_audio(processed_data, sr)
+
+                # Re-run split preview
+                if self._album_metadata and self._album_metadata.tracklist:
+                    self._update_split_preview()
+                    self._update_track_labels()
+                else:
+                    self._split_tab.waveform.set_split_markers([])
+
+                dur = len(processed_data) / sr
+                self._status.showMessage(
+                    f"Processing complete — {dur:.1f}s processed"
+                )
+            else:
+                self._session.state = RecordingState.STOPPED
+                self._status.showMessage("Processing failed — check FFmpeg")
+        except Exception as e:
+            self._session.state = RecordingState.STOPPED
+            self._status.showMessage(f"Processing error: {e}")
+        finally:
+            import os
+
+            for p in (in_path, out_path):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+            self._update_tabs_state()
+
+    def _show_about(self):
+        """Show About dialog."""
+        QMessageBox.about(
+            self,
+            "About VinylRipper",
+            "VinylRipper v1.0\n\n"
+            "A desktop application for digitizing vinyl records.\n\n"
+            "Record from your turntable, automatically split tracks,\n"
+            "look up album metadata from Discogs, and export as\n"
+            "tagged FLAC/MP3/AIFF files.",
+        )
+
+    # ── Device population ──────────────────────────────────────
+
     def _populate_devices(self):
         devices = self._recorder.list_input_devices()
-        default = None
-        for i, d in enumerate(devices):
-            name = d["name"]
-            ch = d["max_input_channels"]
-            self._device_combo.addItem(f"{name}  ({ch} ch)", i)
-            if d.get("default"):
-                default = i
-        if default is not None:
-            self._device_combo.setCurrentIndex(default)
+        self._check_tab.populate_devices(devices)
+        # Backward compat reference
+        self._device_combo = self._check_tab.device_combo
+
+    # ── Timer ──────────────────────────────────────────────────
 
     def _setup_timer(self):
         self._timer = QTimer()
         self._timer.setInterval(30)
         self._timer.timeout.connect(self._poll_audio)
         self._timer.start()
+
+    # ── Shortcuts ──────────────────────────────────────────────
 
     def _setup_shortcuts(self):
         # Undo/Redo shortcuts
@@ -339,14 +673,17 @@ class MainWindow(QMainWindow):
         delete_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
         delete_shortcut.activated.connect(self._delete_selected_marker)
 
+    # ── Window state ───────────────────────────────────────────
+
     def _load_window_state(self):
-        # Window size already set in __init__ from config
         pass
 
     def _save_window_state(self):
         self._config.set("window_width", self.width())
         self._config.set("window_height", self.height())
         self._config.save()
+
+    # ── Quality options ────────────────────────────────────────
 
     def _update_quality_options(self):
         fmt = self._output_format_combo.currentText().lower()
@@ -384,34 +721,39 @@ class MainWindow(QMainWindow):
             )
             self._output_quality_combo.setCurrentIndex(0)
 
+    # ── Undo / Redo / Marker operations ────────────────────────
+
     def _undo(self):
-        if self._waveform.undo():
+        if self._split_tab.waveform.undo():
             self._update_undo_redo_actions()
             self._status.showMessage("Undo", 2000)
 
     def _redo(self):
-        if self._waveform.redo():
+        if self._split_tab.waveform.redo():
             self._update_undo_redo_actions()
             self._status.showMessage("Redo", 2000)
 
     def _update_undo_redo_actions(self):
-        self._undo_action.setEnabled(self._waveform.can_undo())
-        self._redo_action.setEnabled(self._waveform.can_redo())
+        self._undo_action.setEnabled(self._split_tab.waveform.can_undo())
+        self._redo_action.setEnabled(self._split_tab.waveform.can_redo())
 
     def _delete_selected_marker(self):
-        # Could implement marker deletion with right-click context menu
-        pass
+        """Delete the currently hovered split marker."""
+        idx = self._split_tab.waveform.hovered_marker_index()
+        if idx >= 0:
+            self._split_tab.waveform.remove_marker_at_index(idx)
+            self._status.showMessage("Marker deleted", 2000)
+
+    # ── Settings ───────────────────────────────────────────────
 
     def _show_settings(self):
         dialog = SettingsDialog(self)
         if dialog.exec():
-            # Reload config values
-            self._threshold_slider.setValue(int(-self._config.silence_threshold_db))
-            self._duration_slider.setValue(
-                int(self._config.min_silence_duration * 1000)
+            self._split_tab.threshold_slider.setValue(
+                int(-self._config.silence_threshold_db)
             )
-            self._restoration_combo.setCurrentIndex(
-                self._config.default_restoration_level
+            self._split_tab.gap_slider.setValue(
+                int(self._config.min_silence_duration * 1000)
             )
             self._output_format_combo.setCurrentText(
                 self._config.default_output_format.upper()
@@ -419,11 +761,47 @@ class MainWindow(QMainWindow):
             self._update_quality_options()
             self._status.showMessage("Settings saved", 2000)
 
+    # ── Audio polling ──────────────────────────────────────────
+
     def _poll_audio(self):
+        # Flip monitoring — main recorder is paused, waiting for needle drop
+        if self._flip_monitor_recorder is not None:
+            for data in self._flip_monitor_recorder.drain():
+                if data.ndim > 1:
+                    mono = data.mean(axis=1)
+                else:
+                    mono = data
+                rms = np.sqrt(np.mean(mono**2))
+                # -35 dBFS threshold (same as _try_resume_recording used)
+                if rms > 10 ** (-35 / 20):
+                    self._on_flip_detected()
+                    return
+            return
+
+        if self._session.state == RecordingState.CALIBRATING:
+            if self._calibration_recorder:
+                for data in self._calibration_recorder.drain():
+                    self._calibration_buffer.append(data)
+            return
+
+        if self._session.state == RecordingState.CALIBRATED:
+            # Needle-down detection: wait for signal
+            if self._recorder:
+                for data in self._recorder.drain():
+                    if self._needle_detector.is_signal_detected(
+                        data, threshold_multiplier=3.0
+                    ):
+                        self._auto_start_recording()
+                        return
+            return
+
         if not self._recording:
             return
         for data in self._recorder.drain():
-            self._waveform.enqueue(data)
+            self._check_tab.waveform.enqueue(data)
+            self._session.accumulate_audio(self._session.current_side, data)
+
+    # ── Recording control ──────────────────────────────────────
 
     def _toggle_recording(self):
         if not self._recording:
@@ -432,9 +810,10 @@ class MainWindow(QMainWindow):
             self._stop_recording()
 
     def _start_recording(self):
-        idx = self._device_combo.currentData()
-        ds = self._recorder.list_input_devices()
-        if idx is None or idx >= len(ds):
+        """Start recording workflow: search album, then begin countdown."""
+        idx = self._check_tab.device_combo.currentData()
+        devices = getattr(self._check_tab, "_devices", None)
+        if devices is None or idx is None or idx >= len(devices):
             self._status.showMessage("No valid input device selected")
             return
 
@@ -444,91 +823,234 @@ class MainWindow(QMainWindow):
 
         self._album_metadata = dialog.album_metadata
         if self._album_metadata and self._album_metadata.artist:
-            self._metadata_label.setText(
-                f"{self._album_metadata.artist} — {self._album_metadata.title}"
+            self._recording_tab.set_metadata_display(
+                self._album_metadata.artist, self._album_metadata.title
+            )
+            self._recording_tab.set_tracklist(
+                self._album_metadata.tracklist,
+                getattr(self._album_metadata, "side_tracklist", None),
             )
         else:
-            self._metadata_label.setText("")
+            self._recording_tab.set_metadata_display("", "")
 
-        device_info = ds[idx]
+        # Also update session metadata
+        self._session.metadata = self._album_metadata
+
+        # Stop monitoring recorder to prevent needle-detect from
+        # hijacking the manual recording countdown
+        if self._session.state == RecordingState.CALIBRATED and self._recorder:
+            self._recorder.stop()
+            self._recorder = None
+
+        device_info = devices[idx]
+        sr = int(device_info["default_samplerate"])
+
+        # Store pending recording params for after countdown
+        self._pending_recording_data = {
+            "device_idx": idx,
+            "device_name": str(device_info["name"]),
+            "samplerate": sr,
+            "channels": min(2, device_info["max_input_channels"]),
+        }
+
+        # Start 3-second countdown
+        self._countdown_remaining = 3
+        self._recording_tab.show_countdown(self._countdown_remaining)
+        self._countdown_timer.start()
+        self._status.showMessage(f"Starting in {self._countdown_remaining}...")
+
+    def _countdown_tick(self):
+        """Handle pre-recording countdown timer."""
+        self._countdown_remaining -= 1
+        if self._countdown_remaining > 0:
+            self._recording_tab.show_countdown(self._countdown_remaining)
+            self._status.showMessage(f"Starting in {self._countdown_remaining}...")
+        else:
+            self._countdown_timer.stop()
+            self._recording_tab.hide_countdown()
+            if self._pending_recording_data:
+                self._begin_recording()
+
+    def _begin_recording(self):
+        """Actually start recording after countdown completes."""
+        if not self._pending_recording_data:
+            return
+        params = self._pending_recording_data
+        self._pending_recording_data = None
+
+        device_name = params.get("device_name")
+        sr = params["samplerate"]
+        ch = params["channels"]
+
+        # Stop any leftover monitoring recorder before creating recording one
+        if self._recorder:
+            self._recorder.stop()
+
         self._recorder = Recorder(
-            device=idx,
-            samplerate=int(device_info["default_samplerate"]),
-            channels=min(2, device_info["max_input_channels"]),
+            device=device_name, samplerate=sr, channels=ch
         )
 
-        # Create temp WAV file for recording
         import tempfile
 
         self._temp_wav_path = tempfile.mktemp(suffix=".wav")
+        self._session.temp_wav_path = self._temp_wav_path
 
         self._recorder.start()
         self._recording = True
         self._side = 1
         self._side_check_timer.start()
-        self._waveform.set_samplerate(int(device_info["default_samplerate"]))
-        self._waveform.set_recording(True)
-        self._record_btn.setText("Stop")
-        self._save_btn.setEnabled(False)
-        self._split_btn.setEnabled(False)
-        self._device_combo.setEnabled(False)
-        self._waveform.clear_review()
-        self._waveform.reset()
-        self._waveform.clear_undo_stack()
+
+        self._session.state = RecordingState.RECORDING
+        self._session.samplerate = sr
+        self._session.recorded_data = None
+        self._session.markers = []
+        self._session.current_side = 1
+
+        # Live waveform on CheckLevelTab
+        self._check_tab.waveform.set_samplerate(sr)
+        self._check_tab.waveform.set_recording(True)
+        self._check_tab.waveform.clear_review()
+        self._check_tab.waveform.reset()
+
+        # Clear split waveform for fresh recording
+        self._split_tab.waveform.clear_undo_stack()
+        self._split_tab.waveform.clear_review()
+        self._session.clear_side_data()
+
+        # Update UI controls
+        self._recording_tab.record_btn.setText("Stop")
+        self._split_tab.save_btn.setEnabled(False)
+        self._split_tab.export_btn.setEnabled(False)
+        self._check_tab.device_combo.setEnabled(False)
+
         self._update_undo_redo_actions()
+        self._update_tabs_state()
         self._status.showMessage("Recording...")
+
+    def _search_discogs(self):
+        """Open Discogs search dialog and store selected album metadata."""
+        from vinylripper.ui.search_dialog import SearchDialog
+
+        dialog = SearchDialog(self)
+        if dialog.exec() != SearchDialog.DialogCode.Accepted:
+            return
+
+        self._album_metadata = dialog.album_metadata
+        if self._album_metadata and self._album_metadata.artist:
+            self._recording_tab.set_metadata_display(
+                self._album_metadata.artist, self._album_metadata.title
+            )
+            self._recording_tab.set_tracklist(
+                self._album_metadata.tracklist,
+                getattr(self._album_metadata, "side_tracklist", None),
+            )
+        else:
+            self._recording_tab.set_metadata_display("", "")
+
+        self._session.metadata = self._album_metadata
+        self._status.showMessage(
+            f"Album set: {self._album_metadata.artist} — {self._album_metadata.title}"
+            if self._album_metadata
+            else "No album selected"
+        )
+
+    def _auto_start_recording(self):
+        """Start recording automatically when needle-drop detected.
+
+        Stops the monitoring recorder to prevent re-triggering during the
+        countdown — otherwise _poll_audio keeps detecting signal and
+        restarts the countdown every 30ms, so it never reaches zero.
+        """
+        idx = self._check_tab.device_combo.currentData()
+        devices = getattr(self._check_tab, "_devices", None)
+        if devices is None or idx is None or idx >= len(devices):
+            self._status.showMessage("Needle detected but no device selected")
+            return
+        device_info = devices[idx]
+        sr = int(device_info["default_samplerate"])
+        ch = min(2, device_info["max_input_channels"])
+
+        self._pending_recording_data = {
+            "device_idx": idx,
+            "device_name": str(device_info["name"]),
+            "samplerate": sr,
+            "channels": ch,
+        }
+
+        # Stop monitoring recorder to prevent re-triggering during countdown
+        if self._recorder:
+            self._recorder.stop()
+        self._recorder = None
+
+        # Needle-detected auto-start uses a shorter countdown
+        self._countdown_remaining = 2
+        self._recording_tab.show_countdown(self._countdown_remaining)
+        self._countdown_timer.start()
+        self._status.showMessage("Needle detected — starting...")
 
     def _stop_recording(self):
         self._side_check_timer.stop()
         self._resume_timer.stop()
-        data = self._recorder.stop()
+        self._countdown_timer.stop()
+        self._recording_tab.hide_countdown()
+        self._stop_flip_monitoring()
+
+        # Drain remaining audio from recorder into session
+        for chunk in self._recorder.drain():
+            self._session.accumulate_audio(self._session.current_side, chunk)
+
+        # Stop recorder (close stream — data is in session)
+        self._recorder.stop()
         self._recording = False
         self._side = 1
-        self._waveform.set_recording(False)
-        self._record_btn.setText("Record")
-        self._device_combo.setEnabled(True)
+
+        # CheckLevelTab waveform stops live display
+        self._check_tab.waveform.set_recording(False)
+
+        self._recording_tab.record_btn.setText("Record")
+        self._check_tab.device_combo.setEnabled(True)
+
+        # Get finalized audio with side gap handling
+        data = self._session.finalize_audio()
 
         if data is not None and len(data) > 0:
             self._recorded_data = data
-            self._save_btn.setEnabled(True)
+            self._session.recorded_data = data
+            self._session.state = RecordingState.STOPPED
+
+            self._split_tab.save_btn.setEnabled(True)
             sr = self._recorder.samplerate
 
-            # Save to temp WAV file for FFmpeg processing
             import soundfile as sf
 
             if self._temp_wav_path:
                 sf.write(self._temp_wav_path, data, sr)
 
-            self._waveform.set_full_audio(data, sr)
+            # Load audio into SplitTracksTab waveform
+            self._split_tab.set_full_audio(data, sr)
+
             has_tracks = bool(self._album_metadata and self._album_metadata.tracklist)
-            self._split_btn.setEnabled(has_tracks)
+            self._split_tab.export_btn.setEnabled(has_tracks)
             if has_tracks:
                 self._update_split_preview()
+                self._update_track_labels()
             else:
-                self._split_status.setText(
+                self._split_tab.update_split_status(
                     "Split & save available after Discogs search"
                 )
             dur = len(data) / sr
             self._status.showMessage(f"Recorded {dur:.1f}s — ready to save")
         else:
             self._recorded_data = None
-            self._save_btn.setEnabled(False)
-            self._split_btn.setEnabled(False)
+            self._session.recorded_data = None
+            self._session.state = RecordingState.IDLE
+            self._split_tab.save_btn.setEnabled(False)
+            self._split_tab.export_btn.setEnabled(False)
             self._status.showMessage("No audio recorded")
 
-    def _on_threshold_changed(self, value):
-        self._update_split_preview()
+        self._update_tabs_state()
 
-    def _on_duration_changed(self, value):
-        self._update_split_preview()
-
-    def _on_markers_changed(self, markers):
-        n = len(markers) + 1
-        track_count = len(self._album_metadata.tracklist) if self._album_metadata else 0
-        label = f"{n} tracks"
-        if track_count and n != track_count:
-            label += f"  ({track_count} in metadata)"
-        self._split_status.setText(label)
+    # ── Side detection ─────────────────────────────────────────
 
     def _check_side_end(self):
         if self._recorder.is_paused:
@@ -568,51 +1090,153 @@ class MainWindow(QMainWindow):
     def _on_side_finished(self):
         self._recorder.pause()
         self._side_check_timer.stop()
-        self._waveform.set_recording(False)
-
-        QMessageBox.information(
-            self,
-            f"Side {self._side} Complete",
-            f"Side {self._side} finished. Flip the record and drop the needle.\n"
-            "Recording will resume automatically when audio is detected.",
-        )
-
-        self._status.showMessage(f"Waiting for Side {self._side + 1}...")
-        self._resume_timer.start()
-
-    def _try_resume_recording(self):
-        if not self._recorder.is_paused:
-            self._resume_timer.stop()
-            return
-        try:
-            import sounddevice as sd
-
-            temp = sd.rec(
-                int(self._recorder.samplerate),
-                samplerate=self._recorder.samplerate,
-                channels=1,
-                device=self._recorder.device,
-                blocking=True,
-            )
-            rms = np.sqrt(np.mean(temp**2))
-            if rms > 10 ** (-35 / 20):
-                self._on_audio_detected()
-        except Exception:
-            pass
-
-    def _on_audio_detected(self):
         self._resume_timer.stop()
+        self._check_tab.waveform.set_recording(False)
+
+        self._session.state = RecordingState.PAUSED
+        self._update_tabs_state()
+
+        if self._side < self._session.total_sides:
+            # Wait for needle drop on the next side — no countdown
+            self._start_flip_monitoring()
+            self._status.showMessage(
+                f"Side {self._session.side_letter()} done — flip record, "
+                f"next side will auto-start"
+            )
+        else:
+            # All sides done — finalize
+            self._finish_recording()
+
+    def _start_flip_monitoring(self):
+        """Start a monitoring recorder to detect needle drop for the next side.
+
+        Runs a lightweight recorder while the main recorder is paused.
+        When audio is detected (needle drop), _on_flip_detected is called.
+        """
+        sr = (
+            self._session.samplerate
+            or getattr(self._recorder, "samplerate", 44100)
+        )
+        device = getattr(self._recorder, "device", None)
+        ch = min(getattr(self._recorder, "channels", 2), 1)
+
+        self._flip_monitor_recorder = Recorder(
+            device=device, samplerate=sr, channels=ch
+        )
+        self._flip_monitor_recorder.start()
+
+    def _stop_flip_monitoring(self):
+        """Stop and discard the flip monitoring recorder."""
+        if self._flip_monitor_recorder:
+            self._flip_monitor_recorder.stop()
+            self._flip_monitor_recorder = None
+
+    def _on_flip_detected(self):
+        """Needle dropped — resume the main recorder for the next side."""
+        self._stop_flip_monitoring()
+
         self._side += 1
         self._recorder.resume()
-        self._waveform.set_recording(True)
+        self._check_tab.waveform.set_recording(True)
+
+        self._session.current_side = self._side
+        self._session.state = RecordingState.RECORDING
+        self._update_tabs_state()
+
+        # Don't start side-end detection yet — give time for the needle
+        # to settle. The grace timer will start _side_check_timer later.
+        self._flip_grace_timer.start(12000)  # 12-second grace period
+        self._status.showMessage(f"Recording Side {self._session.side_letter()}...")
+
+    def _finish_recording(self):
+        """Finalize multi-side recording."""
+        self._side_check_timer.stop()
+        self._resume_timer.stop()
+        self._countdown_timer.stop()
+        self._flip_grace_timer.stop()
+        self._stop_flip_monitoring()
+        self._recording_tab.hide_countdown()
+
+        # Drain remaining audio from recorder into session
+        for chunk in self._recorder.drain():
+            self._session.accumulate_audio(self._session.current_side, chunk)
+
+        # Stop recorder (close stream — data is in session)
+        self._recorder.stop()
+        self._recording = False
+        self._side = 1
+
+        self._check_tab.waveform.set_recording(False)
+        self._recording_tab.record_btn.setText("Record")
+        self._check_tab.device_combo.setEnabled(True)
+
+        # Get finalized audio with side gap handling
+        data = self._session.finalize_audio()
+
+        if data is not None and len(data) > 0:
+            self._recorded_data = data
+            self._session.recorded_data = data
+            self._session.state = RecordingState.STOPPED
+
+            self._split_tab.save_btn.setEnabled(True)
+            sr = self._recorder.samplerate
+
+            import soundfile as sf
+
+            if self._temp_wav_path:
+                sf.write(self._temp_wav_path, data, sr)
+
+            # Load audio into SplitTracksTab waveform
+            self._split_tab.set_full_audio(data, sr)
+
+            has_tracks = bool(self._album_metadata and self._album_metadata.tracklist)
+            self._split_tab.export_btn.setEnabled(has_tracks)
+            if has_tracks:
+                self._update_split_preview()
+                self._update_track_labels()
+            else:
+                self._split_tab.update_split_status(
+                    "Split & save available after Discogs search"
+                )
+            dur = len(data) / sr
+            self._status.showMessage(f"Recorded {dur:.1f}s — ready to save")
+        else:
+            self._recorded_data = None
+            self._session.recorded_data = None
+            self._session.state = RecordingState.IDLE
+            self._split_tab.save_btn.setEnabled(False)
+            self._split_tab.export_btn.setEnabled(False)
+            self._status.showMessage("No audio recorded")
+
+        self._update_tabs_state()
+
+    def _end_flip_grace(self):
+        """End the post-flip grace period and enable side-end detection."""
         self._side_check_timer.start()
-        self._status.showMessage(f"Recording Side {self._side}...")
+
+
+    # ── Split preview / markers ────────────────────────────────
+
+    def _on_threshold_changed(self, value):
+        self._update_split_preview()
+
+    def _on_duration_changed(self, value):
+        self._update_split_preview()
+
+    def _on_markers_changed(self, markers):
+        n = len(markers) + 1
+        track_count = len(self._album_metadata.tracklist) if self._album_metadata else 0
+        label = f"{n} tracks"
+        if track_count and n != track_count:
+            label += f"  ({track_count} in metadata)"
+        self._split_tab.update_split_status(label)
+        self._update_track_labels()
 
     def _update_split_preview(self):
         if self._recorded_data is None:
             return
-        threshold_db = -(self._threshold_slider.value())
-        min_silence_ms = self._duration_slider.value()
+        threshold_db = -(self._split_tab.threshold_slider.value())
+        min_silence_ms = self._split_tab.gap_slider.value()
         try:
             sr = self._recorder.samplerate
             points = detect_silence_splits(
@@ -621,7 +1245,8 @@ class MainWindow(QMainWindow):
                 threshold_db=threshold_db,
                 min_silence_ms=min_silence_ms,
             )
-            self._waveform.set_split_markers(points)
+            self._split_tab.set_split_markers(points)
+            self._update_track_labels()
             n = len(points) + 1
             label = f"Detected {n} tracks" if points else "No gaps detected"
             track_count = (
@@ -629,15 +1254,47 @@ class MainWindow(QMainWindow):
             )
             if track_count and n != track_count:
                 label += f"  ({track_count} in metadata)"
-            self._split_status.setText(label)
+            self._split_tab.update_split_status(label)
         except Exception:
-            self._split_status.setText("")
+            self._split_tab.update_split_status("")
+
+    def _update_track_labels(self):
+        """Update track label overlay based on split markers and metadata."""
+        if not self._album_metadata or not self._album_metadata.tracklist:
+            self._split_tab.waveform.set_track_labels([])
+            return
+
+        split_points = self._split_tab.waveform.get_split_markers()
+        positions = self._album_metadata.get_vinyl_positions()
+
+        labels: list[tuple[int, str]] = []
+        for i, pos in enumerate(positions):
+            track = (
+                self._album_metadata.tracklist[i]
+                if i < len(self._album_metadata.tracklist)
+                else {}
+            )
+            title = track.get("title", "")
+            label_text = f"{pos}  {title}" if title else pos
+
+            if i < len(split_points):
+                labels.append((split_points[i], label_text))
+            else:
+                # Last track — place at end of audio
+                total = (
+                    len(self._recorded_data) if self._recorded_data is not None else 0
+                )
+                labels.append((total, label_text))
+
+        self._split_tab.waveform.set_track_labels(labels)
+
+    # ── Split & Export ─────────────────────────────────────────
 
     def _split_recording(self):
         if self._recorded_data is None or not self._temp_wav_path:
             return
 
-        split_points = self._waveform.get_split_markers()
+        split_points = self._split_tab.get_split_points()
         if not split_points:
             QMessageBox.information(
                 self,
@@ -671,14 +1328,16 @@ class MainWindow(QMainWindow):
         self._config.last_output_dir = dir_path
         self._config.save()
 
-        self._split_btn.setEnabled(False)
-        self._save_btn.setEnabled(False)
-        self._record_btn.setEnabled(False)
-        self._device_combo.setEnabled(False)
+        self._split_tab.export_btn.setEnabled(False)
+        self._split_tab.save_btn.setEnabled(False)
+        self._recording_tab.record_btn.setEnabled(False)
+        self._check_tab.device_combo.setEnabled(False)
         self._output_format_combo.setEnabled(False)
         self._output_quality_combo.setEnabled(False)
-        self._restoration_combo.setEnabled(False)
         self._status.showMessage("Processing tracks...")
+
+        self._session.state = RecordingState.PROCESSING
+        self._update_tabs_state()
 
         self._cancel_event.clear()
 
@@ -719,7 +1378,7 @@ class MainWindow(QMainWindow):
             flac_compression = 8
             mp3_quality = "0"
 
-        restoration_level = self._restoration_combo.currentIndex()
+        restoration_level = self._get_restoration_level()
 
         # Run processing in background thread
         self._processing_thread = threading.Thread(
@@ -749,7 +1408,10 @@ class MainWindow(QMainWindow):
             "aiff": "AIFF (*.aiff *.aif)",
         }
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save Audio", f"recording.{fmt}", filters.get(fmt, "FLAC (*.flac)")
+            self,
+            "Save Audio",
+            f"recording.{fmt}",
+            filters.get(fmt, "FLAC (*.flac)"),
         )
         if not path:
             return
@@ -772,9 +1434,9 @@ class MainWindow(QMainWindow):
             flac_compression = 8
             mp3_quality = "0"
 
-        restoration_level = self._restoration_combo.currentIndex()
+        restoration_level = self._get_restoration_level()
 
-        self._save_btn.setEnabled(False)
+        self._split_tab.save_btn.setEnabled(False)
         self._status.showMessage("Converting...")
 
         def convert_thread():
@@ -798,7 +1460,9 @@ class MainWindow(QMainWindow):
                         self._album_metadata.cover_mime,
                     )
                 self._save_finished.emit(
-                    success, path, None if success else "Conversion failed"
+                    success,
+                    path,
+                    None if success else "Conversion failed",
                 )
             except Exception as e:
                 self._save_finished.emit(False, "", str(e))
@@ -806,7 +1470,7 @@ class MainWindow(QMainWindow):
         threading.Thread(target=convert_thread, daemon=True).start()
 
     def _on_save_finished(self, success, path, error):
-        self._save_btn.setEnabled(True)
+        self._split_tab.save_btn.setEnabled(True)
         if success:
             self._status.showMessage(f"Saved: {path}")
         else:
@@ -838,7 +1502,6 @@ class MainWindow(QMainWindow):
                 cancel_event=self._cancel_event,
             )
 
-            # Embed cover art if available
             if self._album_metadata and self._album_metadata.cover_data:
                 for f in output_files:
                     embed_cover_art(
@@ -855,13 +1518,15 @@ class MainWindow(QMainWindow):
         self._status.showMessage(f"Processing track {current}/{total}...")
 
     def _on_processing_finished(self, count, output_dir, error):
-        self._split_btn.setEnabled(True)
-        self._save_btn.setEnabled(True)
-        self._record_btn.setEnabled(True)
-        self._device_combo.setEnabled(True)
+        self._split_tab.export_btn.setEnabled(True)
+        self._split_tab.save_btn.setEnabled(True)
+        self._recording_tab.record_btn.setEnabled(True)
+        self._check_tab.device_combo.setEnabled(True)
         self._output_format_combo.setEnabled(True)
         self._output_quality_combo.setEnabled(True)
-        self._restoration_combo.setEnabled(True)
+
+        self._session.state = RecordingState.STOPPED
+        self._update_tabs_state()
 
         if error:
             if "cancelled" in error.lower():

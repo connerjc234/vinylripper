@@ -167,12 +167,17 @@ def split_audio_ffmpeg(
     mp3_quality: str = "0",
     aiff_quality: str = "16",
     restoration_level: int = 0,
+    restoration_settings: dict | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
     cancel_event: threading.Event | None = None,
 ) -> list[str]:
     """
     Split audio file at given points and convert to specified format with metadata.
     Returns list of output file paths.
+
+    Args:
+        restoration_settings: Dict from CleanupAudioTab.get_settings().
+                             Takes precedence over restoration_level when provided.
     """
     ffmpeg = _find_ffmpeg()
     os.makedirs(output_dir, exist_ok=True)
@@ -183,12 +188,15 @@ def split_audio_ffmpeg(
     all_points = [0.0] + split_points + [duration]
     output_files = []
 
-    af_filters = []
-    if restoration_level >= 1:
-        af_filters.append("highpass=f=30")
-    if restoration_level >= 2:
-        af_filters.append("adeclick")
-    af_filter_str = ",".join(af_filters) if af_filters else "anull"
+    if restoration_settings:
+        af_filter_str = build_restoration_filter(restoration_settings)
+    else:
+        af_filters: list[str] = []
+        if restoration_level >= 1:
+            af_filters.append("highpass=f=30")
+        if restoration_level >= 2:
+            af_filters.append("adeclick")
+        af_filter_str = ",".join(af_filters) if af_filters else "anull"
 
     for i in range(len(all_points) - 1):
         if cancel_event and cancel_event.is_set():
@@ -294,6 +302,73 @@ def split_audio_ffmpeg(
     return output_files
 
 
+def build_restoration_filter(settings: dict) -> str:
+    """Build FFmpeg audio filter string from restoration settings dict.
+
+    settings shape (matches CleanupAudioTab.get_settings()):
+        {"highpass": {"enabled": bool, "cutoff": int},
+         "declick": {"enabled": bool, "strength": float},
+         "denoise": {"enabled": bool, "strength": float}}
+
+    Returns empty string if no filters are needed.
+    """
+    filters: list[str] = []
+
+    if settings.get("highpass", {}).get("enabled"):
+        cutoff = settings["highpass"]["cutoff"]
+        filters.append(f"highpass=f={cutoff}")
+
+    if settings.get("declick", {}).get("enabled"):
+        filters.append("adeclick")
+
+    if settings.get("denoise", {}).get("enabled"):
+        strength = settings["denoise"]["strength"]  # 0.0 to 1.0
+        # Map 0-1 to anlmdn strength 1-15 (sensible range for vinyl noise)
+        anlmdn_s = max(1, min(15, int(strength * 15)))
+        filters.append(f"anlmdn=s={anlmdn_s}")
+
+    return ",".join(filters) if filters else ""
+
+
+def apply_restoration(
+    input_file: str,
+    output_file: str,
+    settings: dict,
+    samplerate: int | None = None,
+) -> bool:
+    """Apply restoration filters to audio file using FFmpeg.
+
+    Args:
+        input_file: Path to input WAV file.
+        output_file: Path to output file.
+        settings: Restoration settings dict (same shape as
+                  CleanupAudioTab.get_settings()).
+        samplerate: Output sample rate (None = keep original).
+
+    Returns:
+        True if FFmpeg completed successfully.
+    """
+    ffmpeg = _find_ffmpeg()
+    filter_str = build_restoration_filter(settings)
+
+    cmd: list[str] = [ffmpeg, "-y", "-v", "error", "-i", input_file]
+
+    if filter_str:
+        cmd.extend(["-af", filter_str])
+
+    if samplerate:
+        cmd.extend(["-ar", str(samplerate)])
+
+    # Copy to WAV unless output already specifies a format
+    if not output_file.lower().endswith((".wav", ".flac", ".mp3", ".aiff", ".aif", ".ogg", ".au", ".raw")):
+        cmd.extend(["-c:a", "pcm_s16le"])
+
+    cmd.append(output_file)
+
+    result = subprocess.run(cmd, capture_output=True, timeout=300)
+    return result.returncode == 0
+
+
 def convert_audio(
     input_file: str,
     output_file: str,
@@ -301,20 +376,29 @@ def convert_audio(
     flac_compression: int = 8,
     mp3_quality: str = "0",
     restoration_level: int = 0,
+    restoration_settings: dict | None = None,
 ) -> bool:
-    """Convert audio file to specified format with optional restoration."""
+    """Convert audio file to specified format with optional restoration.
+
+    Args:
+        restoration_settings: Dict from CleanupAudioTab.get_settings().
+                             Takes precedence over restoration_level when provided.
+    """
     ffmpeg = _find_ffmpeg()
 
-    af_filters = []
-    if restoration_level >= 1:
-        af_filters.append("highpass=f=30")
-    if restoration_level >= 2:
-        af_filters.append("adeclick")
-    af_filter_str = ",".join(af_filters) if af_filters else "anull"
+    if restoration_settings:
+        af_filter_str = build_restoration_filter(restoration_settings)
+    else:
+        af_filters: list[str] = []
+        if restoration_level >= 1:
+            af_filters.append("highpass=f=30")
+        if restoration_level >= 2:
+            af_filters.append("adeclick")
+        af_filter_str = ",".join(af_filters) if af_filters else "anull"
 
     cmd = [ffmpeg, "-y", "-v", "error", "-i", input_file]
 
-    if af_filter_str != "anull":
+    if af_filter_str and af_filter_str != "anull":
         cmd.extend(["-af", af_filter_str])
 
     if output_format == "flac":

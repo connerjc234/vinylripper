@@ -1,3 +1,5 @@
+import re
+
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
@@ -92,6 +94,14 @@ class DetailThread(QThread):
                 }
             )
 
+        # Group tracks by side (A, B, C, …)
+        side_tracklist: dict[str, list[dict]] = {}
+        for t in tracklist:
+            pos = t.get("position", "")
+            match = re.match(r"^([A-H])", pos.upper()) if pos else None
+            side = match.group(1) if match else "A"
+            side_tracklist.setdefault(side, []).append(t)
+
         return AlbumMetadata(
             artist=", ".join(artists) if artists else self.result.artist,
             title=data.get("title", self.result.release_title),
@@ -101,6 +111,7 @@ class DetailThread(QThread):
             genres=data.get("genres", []),
             styles=data.get("styles", []),
             tracklist=tracklist,
+            side_tracklist=side_tracklist,
             cover_data=cover_data,
             cover_mime=cover_mime,
             discogs_id=data.get("id", self.result.id),

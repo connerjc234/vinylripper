@@ -35,6 +35,7 @@ class WaveformWidget(QWidget):
         self._full_samplerate = 44100
         self._full_total_samples = 0
         self._split_markers = []
+        self._track_labels: list[tuple[int, str]] = []
         self._dragging_index = -1
         self._hovered_index = -1
 
@@ -77,6 +78,7 @@ class WaveformWidget(QWidget):
         self._full_audio = None
         self._full_total_samples = 0
         self._split_markers = []
+        self._track_labels = []
         self._dragging_index = -1
         self._hovered_index = -1
         self.update()
@@ -94,13 +96,29 @@ class WaveformWidget(QWidget):
         self._split_markers = sorted(points)
         self.update()
 
+    def set_track_labels(self, labels: list[tuple[int, str]]):
+        """Set track labels to overlay on waveform.
+
+        Args:
+            labels: List of (sample_position, label_text) tuples.
+                    Sample positions correspond to split marker positions.
+                    There should be one entry per track (len(split_markers) + 1).
+        """
+        self._track_labels = labels
+        self.update()
+
     def get_split_markers(self):
         return sorted(self._split_markers)
+
+    def hovered_marker_index(self) -> int:
+        """Return index of the marker under the cursor, or -1 if none."""
+        return self._hovered_index
 
     def clear_review(self):
         self._full_audio = None
         self._full_total_samples = 0
         self._split_markers = []
+        self._track_labels = []
         self._dragging_index = -1
         self._hovered_index = -1
         self.update()
@@ -276,6 +294,27 @@ class WaveformWidget(QWidget):
                 )
                 painter.drawPolygon(poly)
 
+        # Draw track labels (from Discogs metadata overlay)
+        if self._track_labels and self._split_markers:
+            painter.setPen(QColor(245, 166, 35))  # amber #f5a623
+            label_font = QFont("sans-serif", 9)
+            painter.setFont(label_font)
+
+            for i, marker_pos in enumerate(self._split_markers):
+                if i < len(self._track_labels):
+                    _, label = self._track_labels[i]
+                    x = self._sample_to_x(marker_pos, margin, plot_w)
+                    painter.drawText(x + 4, margin - 2, label)
+
+                # Also draw a label for the LAST segment (after last marker)
+                if i == len(self._split_markers) - 1 and i + 1 < len(
+                    self._track_labels
+                ):
+                    _, label = self._track_labels[i + 1]
+                    x = w - margin
+                    text_width = painter.fontMetrics().horizontalAdvance(label)
+                    painter.drawText(x - text_width - 4, margin - 2, label)
+
         self._draw_review_time_axis(painter, w, h, margin, plot_h, bottom_margin, total)
 
     def _draw_live_time_axis(
@@ -388,6 +427,29 @@ class WaveformWidget(QWidget):
         self.update()
 
         super().mouseMoveEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Double-click to add a split marker at the click position."""
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mouseDoubleClickEvent(event)
+            return
+        if self._full_audio is None or self._recording:
+            super().mouseDoubleClickEvent(event)
+            return
+
+        w = self.width()
+        margin = 10
+        plot_w = w - 2 * margin
+        x = int(event.position().x())
+
+        # Don't add marker if clicking near an existing marker (let drag take over)
+        idx = self._find_marker_at(x, margin, plot_w)
+        if idx >= 0:
+            return
+
+        sample = self._x_to_sample(x, margin, plot_w)
+        self.add_marker_at_sample(sample)
+        event.accept()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self._dragging_index >= 0:

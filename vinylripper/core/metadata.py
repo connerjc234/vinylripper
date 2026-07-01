@@ -13,12 +13,16 @@ class AlbumMetadata:
     genres: list[str] = field(default_factory=list)
     styles: list[str] = field(default_factory=list)
     tracklist: list[dict[str, Any]] = field(default_factory=list)
+    side_tracklist: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     cover_data: bytes | None = None
     cover_mime: str = "image/jpeg"
     discogs_id: int = 0
 
     def get_vinyl_positions(self) -> list[str]:
-        """Generate vinyl-style track positions (A1, A2, B1, B2) from tracklist."""
+        """Generate vinyl-style track positions (A1, A2, B1, B2) from tracklist.
+
+        Supports up to 8 sides (A–H) for up to 4-disc sets.
+        """
         positions = []
         side = "A"
         track_num = 1
@@ -31,7 +35,7 @@ class AlbumMetadata:
                 track_num += 1
                 continue
 
-            match = re.match(r"^([A-D])(\d+)", pos.upper())
+            match = re.match(r"^([A-H])(\d+)", pos.upper())
             if match:
                 new_side = match.group(1)
                 new_num = int(match.group(2))
@@ -46,6 +50,29 @@ class AlbumMetadata:
                 track_num += 1
 
         return positions
+
+    def get_side_tracks(self) -> dict[str, list[dict[str, Any]]]:
+        """Group tracks by side letter (A, B, C, D, …).
+
+        Returns dict like {"A": [track1, track2], "B": [track3, track4]}.
+        """
+        sides: dict[str, list[dict[str, Any]]] = {}
+        for track in self.tracklist:
+            pos = track.get("position", "").strip()
+            match = re.match(r"^([A-H])", pos.upper())
+            side_letter = match.group(1) if match else "A"
+            sides.setdefault(side_letter, []).append(track)
+        return sides
+
+    def total_vinyl_sides(self) -> int:
+        """Return number of sides (A, B, C, D, …) in the tracklist."""
+        positions = set()
+        for track in self.tracklist:
+            pos = track.get("position", "").strip()
+            match = re.match(r"^([A-H])", pos.upper())
+            if match:
+                positions.add(match.group(1))
+        return max(len(positions), 1)
 
     def get_track_metadata(self, index: int) -> dict[str, Any]:
         """Get metadata for a specific track index with vinyl position."""
