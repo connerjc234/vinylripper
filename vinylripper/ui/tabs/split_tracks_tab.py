@@ -144,6 +144,15 @@ class SplitTracksTab(QWidget):
         if session and session.markers:
             self._apply_markers()
 
+    def _apply_markers(self) -> None:
+        """Sync session markers to waveform widget."""
+        s = self._session
+        if not s or not s.markers:
+            return
+        points = markers_to_ints(s.markers)
+        self.waveform.set_split_markers(points)
+        self._update_marker_info()
+
     def set_full_audio(self, data: np.ndarray, samplerate: int):
         """Load recorded audio into waveform for review."""
         self.waveform.set_full_audio(data, samplerate)

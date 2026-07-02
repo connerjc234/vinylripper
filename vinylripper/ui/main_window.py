@@ -157,10 +157,6 @@ class MainWindow(QMainWindow):
         self._side_check_timer.setInterval(3000)
         self._side_check_timer.timeout.connect(self._check_side_end)
 
-        self._resume_timer = QTimer()
-        self._resume_timer.setInterval(1000)
-        self._resume_timer.timeout.connect(self._try_resume_recording)
-
         # Non-blocking calibration
         self._calibration_recorder: Recorder | None = None
         self._calibration_buffer: list[np.ndarray] = []
@@ -990,7 +986,6 @@ class MainWindow(QMainWindow):
 
     def _stop_recording(self):
         self._side_check_timer.stop()
-        self._resume_timer.stop()
         self._countdown_timer.stop()
         self._recording_tab.hide_countdown()
         self._stop_flip_monitoring()
@@ -1090,7 +1085,6 @@ class MainWindow(QMainWindow):
     def _on_side_finished(self):
         self._recorder.pause()
         self._side_check_timer.stop()
-        self._resume_timer.stop()
         self._check_tab.waveform.set_recording(False)
 
         self._session.state = RecordingState.PAUSED
@@ -1151,7 +1145,6 @@ class MainWindow(QMainWindow):
     def _finish_recording(self):
         """Finalize multi-side recording."""
         self._side_check_timer.stop()
-        self._resume_timer.stop()
         self._countdown_timer.stop()
         self._flip_grace_timer.stop()
         self._stop_flip_monitoring()
@@ -1425,7 +1418,9 @@ class MainWindow(QMainWindow):
                 if "Compression" in quality_text
                 else self._config.default_flac_compression
             )
+            mp3_quality = "0"
         elif fmt == "mp3":
+            flac_compression = 8
             if "VBR" in quality_text:
                 mp3_quality = quality_text.split("VBR")[1].split("(")[0].strip()
             else:
