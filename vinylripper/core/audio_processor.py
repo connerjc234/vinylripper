@@ -157,6 +157,42 @@ def detect_silence_ffmpeg(
     return filtered_points
 
 
+_AIFF_CODECS = {
+    "16": "pcm_s16be",
+    "24": "pcm_s24be",
+    "32f": "pcm_f32be",
+}
+
+
+def codec_args(
+    output_format: str,
+    flac_compression: int = 8,
+    mp3_quality: str = "0",
+    aiff_quality: str = "16",
+) -> list[str]:
+    """FFmpeg codec arguments for an export format.
+
+    FLAC keeps the source bit depth (24-bit for VinylRipper's temp files).
+    ``aiff_quality`` is "16", "24" or "32f" (32-bit float).
+    """
+    if output_format == "mp3":
+        return ["-c:a", "libmp3lame", "-q:a", mp3_quality]
+    if output_format == "aiff":
+        if aiff_quality not in _AIFF_CODECS:
+            raise ValueError(f"Unknown AIFF quality: {aiff_quality!r}")
+        return ["-c:a", _AIFF_CODECS[aiff_quality]]
+    return ["-c:a", "flac", "-compression_level", str(flac_compression)]
+
+
+def _legacy_restoration_filter(restoration_level: int) -> str:
+    filters: list[str] = []
+    if restoration_level >= 1:
+        filters.append("highpass=f=30")
+    if restoration_level >= 2:
+        filters.append("adeclick")
+    return ",".join(filters)
+
+
 def split_audio_ffmpeg(
     input_file: str,
     output_dir: str,
@@ -191,12 +227,8 @@ def split_audio_ffmpeg(
     if restoration_settings:
         af_filter_str = build_restoration_filter(restoration_settings)
     else:
-        af_filters: list[str] = []
-        if restoration_level >= 1:
-            af_filters.append("highpass=f=30")
-        if restoration_level >= 2:
-            af_filters.append("adeclick")
-        af_filter_str = ",".join(af_filters) if af_filters else "anull"
+        af_filter_str = _legacy_restoration_filter(restoration_level)
+    codec = codec_args(output_format, flac_compression, mp3_quality, aiff_quality)
 
     for i in range(len(all_points) - 1):
         if cancel_event and cancel_event.is_set():
@@ -247,17 +279,10 @@ def split_audio_ffmpeg(
             input_file,
         ]
 
-        if af_filter_str != "anull":
+        if af_filter_str:
             cmd.extend(["-af", af_filter_str])
 
-        if output_format == "flac":
-            cmd.extend(["-c:a", "flac", "-compression_level", str(flac_compression)])
-        elif output_format == "mp3":
-            cmd.extend(["-c:a", "libmp3lame", "-q:a", mp3_quality])
-        elif output_format == "aiff":
-            cmd.extend(["-c:a", "pcm_s16be"])
-        else:
-            cmd.extend(["-c:a", "flac", "-compression_level", str(flac_compression)])
+        cmd.extend(codec)
 
         metadata_args = []
         if title:
@@ -319,7 +344,11 @@ def build_restoration_filter(settings: dict) -> str:
         filters.append(f"highpass=f={cutoff}")
 
     if settings.get("declick", {}).get("enabled"):
-        filters.append("adeclick")
+        # adeclick's detection threshold `t` (1-100, default 2): lower catches
+        # more clicks. Map strength 0..1 so 0.5 gives FFmpeg's default.
+        strength = settings["declick"].get("strength", 0.5)
+        t = max(1.0, min(100.0, 2.0 * 4.0 ** (1.0 - 2.0 * strength)))
+        filters.append(f"adeclick=t={t:.2f}")
 
     if settings.get("denoise", {}).get("enabled"):
         strength = settings["denoise"]["strength"]  # 0.0 to 1.0
@@ -359,9 +388,10 @@ def apply_restoration(
     if samplerate:
         cmd.extend(["-ar", str(samplerate)])
 
-    # Copy to WAV unless output already specifies a format
-    if not output_file.lower().endswith((".wav", ".flac", ".mp3", ".aiff", ".aif", ".ogg", ".au", ".raw")):
-        cmd.extend(["-c:a", "pcm_s16le"])
+    # FFmpeg's default WAV codec is 16-bit; keep 24-bit so cleanup doesn't
+    # lower the recording's resolution.
+    if output_file.lower().endswith(".wav"):
+        cmd.extend(["-c:a", "pcm_s24le"])
 
     cmd.append(output_file)
 
@@ -377,39 +407,28 @@ def convert_audio(
     mp3_quality: str = "0",
     restoration_level: int = 0,
     restoration_settings: dict | None = None,
+    aiff_quality: str = "16",
 ) -> bool:
     """Convert audio file to specified format with optional restoration.
 
     Args:
         restoration_settings: Dict from CleanupAudioTab.get_settings().
                              Takes precedence over restoration_level when provided.
+        aiff_quality: "16", "24" or "32f"; only used for AIFF output.
     """
     ffmpeg = _find_ffmpeg()
 
     if restoration_settings:
         af_filter_str = build_restoration_filter(restoration_settings)
     else:
-        af_filters: list[str] = []
-        if restoration_level >= 1:
-            af_filters.append("highpass=f=30")
-        if restoration_level >= 2:
-            af_filters.append("adeclick")
-        af_filter_str = ",".join(af_filters) if af_filters else "anull"
+        af_filter_str = _legacy_restoration_filter(restoration_level)
 
     cmd = [ffmpeg, "-y", "-v", "error", "-i", input_file]
 
-    if af_filter_str and af_filter_str != "anull":
+    if af_filter_str:
         cmd.extend(["-af", af_filter_str])
 
-    if output_format == "flac":
-        cmd.extend(["-c:a", "flac", "-compression_level", str(flac_compression)])
-    elif output_format == "mp3":
-        cmd.extend(["-c:a", "libmp3lame", "-q:a", mp3_quality])
-    elif output_format == "aiff":
-        cmd.extend(["-c:a", "pcm_s16be"])
-    else:
-        cmd.extend(["-c:a", "flac", "-compression_level", str(flac_compression)])
-
+    cmd.extend(codec_args(output_format, flac_compression, mp3_quality, aiff_quality))
     cmd.append(output_file)
 
     result = subprocess.run(cmd, capture_output=True, timeout=300)

@@ -209,10 +209,10 @@ class RecordingTab(QWidget):
 
         self._update_side_display()
 
-    def show_countdown(self, seconds: int):
-        """Display countdown timer for record flip."""
+    def show_countdown(self, seconds: int, message: str = "Starting in"):
+        """Display a countdown before recording starts."""
         self.countdown_label.setVisible(True)
-        self.countdown_label.setText(f"Flip record — {seconds}s")
+        self.countdown_label.setText(f"{message} {seconds}s")
 
     def hide_countdown(self):
         self.countdown_label.setVisible(False)
