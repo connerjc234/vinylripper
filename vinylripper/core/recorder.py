@@ -1,23 +1,40 @@
 import queue
+from collections import deque
 
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
-_QUEUE_MAXSIZE = 16
+# How much recent audio to keep for get_recent_audio(). The full recording is
+# accumulated by the caller (RecordingSession); keeping all of it here too would
+# double memory use on long, high-sample-rate sides.
+_HISTORY_SECS = 30
 
 
 class Recorder:
-    def __init__(self, device=None, samplerate=44100, channels=2, blocksize=4096):
+    def __init__(
+        self,
+        device=None,
+        samplerate=44100,
+        channels=2,
+        blocksize=4096,
+        history_secs=_HISTORY_SECS,
+    ):
         self.device = device
         self.samplerate = samplerate
         self.channels = channels
         self._blocksize = blocksize
-        self._queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=_QUEUE_MAXSIZE)
+        # Unbounded: the UI drains this every few tens of milliseconds. A bounded
+        # queue would silently drop audio (gaps in the rip) whenever the UI
+        # thread stalls for longer than the queue's capacity.
+        self._queue: queue.Queue[np.ndarray] = queue.Queue()
         self._stream = None
         self._recording = False
         self._paused = False
-        self._frames = []
+        self._history_frames = max(0, int(history_secs * samplerate))
+        self._recent: deque[np.ndarray] = deque()
+        self._recent_len = 0
+        self._overflows = 0
 
     @property
     def is_recording(self):
@@ -27,10 +44,21 @@ class Recorder:
     def is_paused(self):
         return self._paused
 
+    @property
+    def overflow_count(self):
+        """Input overflows reported by the audio driver since start().
+
+        Each overflow means the driver discarded input, so the recording has a
+        small gap at that point.
+        """
+        return self._overflows
+
     def start(self):
         if self._recording:
             return
-        self._frames = []
+        self._recent.clear()
+        self._recent_len = 0
+        self._overflows = 0
         self._recording = True
         self._stream = sd.InputStream(
             device=self.device,
@@ -42,6 +70,11 @@ class Recorder:
         self._stream.start()
 
     def stop(self):
+        """Stop and close the input stream.
+
+        Audio still waiting in the queue stays there; call drain() first to
+        collect it.
+        """
         if not self._recording:
             return
         self._recording = False
@@ -50,7 +83,6 @@ class Recorder:
             self._stream.stop()
             self._stream.close()
             self._stream = None
-        return np.concatenate(self._frames, axis=0) if self._frames else np.array([])
 
     def pause(self):
         if not self._recording or self._paused:
@@ -75,13 +107,23 @@ class Recorder:
         self._stream.start()
 
     def get_recent_audio(self, duration_secs):
-        if not self._frames:
+        """Return up to the last ``duration_secs`` of drained audio.
+
+        Limited to the recorder's history window (30 s by default).
+        """
+        if not self._recent:
             return np.array([])
-        all_frames = np.concatenate(self._frames, axis=0)
         n = int(duration_secs * self.samplerate)
-        if len(all_frames) <= n:
-            return all_frames
-        return all_frames[-n:]
+        # Only concatenate the blocks needed to cover n frames.
+        blocks = []
+        total = 0
+        for block in reversed(self._recent):
+            blocks.append(block)
+            total += len(block)
+            if total >= n:
+                break
+        recent = np.concatenate(blocks[::-1], axis=0)
+        return recent[-n:] if len(recent) > n else recent
 
     def save(self, filepath, data, metadata=None):
         sf.write(filepath, data, self.samplerate)
@@ -95,14 +137,21 @@ class Recorder:
                 frames.append(self._queue.get_nowait())
             except queue.Empty:
                 break
-        self._frames.extend(frames)
+        for block in frames:
+            self._recent.append(block)
+            self._recent_len += len(block)
+        # Trim history, keeping at least _history_frames.
+        while (
+            self._recent
+            and self._recent_len - len(self._recent[0]) >= self._history_frames
+        ):
+            self._recent_len -= len(self._recent.popleft())
         return frames
 
     def _callback(self, indata, frames, time_info, status):
-        try:
-            self._queue.put_nowait(indata.copy())
-        except queue.Full:
-            pass
+        if status and status.input_overflow:
+            self._overflows += 1
+        self._queue.put_nowait(indata.copy())
 
     def list_input_devices(self):
         devices = sd.query_devices()

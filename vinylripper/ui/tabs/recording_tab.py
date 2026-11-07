@@ -107,7 +107,9 @@ class RecordingTab(QWidget):
 
         side_status_row = QHBoxLayout()
         self.side_indicator = QLabel("Current Side: —")
-        self.side_indicator.setStyleSheet("color: #888; font-size: 12px; font-weight: bold;")
+        self.side_indicator.setStyleSheet(
+            "color: #888; font-size: 12px; font-weight: bold;"
+        )
         side_status_row.addWidget(self.side_indicator)
         self.side_progress = QLabel("")
         self.side_progress.setStyleSheet("color: #666; font-size: 10px;")
@@ -155,10 +157,22 @@ class RecordingTab(QWidget):
         if not self._session:
             return
         s = self._session
-        if s.state in (RecordingState.RECORDING, RecordingState.PAUSED,
-                       RecordingState.FLIP_COUNTDOWN, RecordingState.STOPPED):
-            self.side_indicator.setText(f"Current Side: {s.side_letter()} ({s.current_side}/{s.total_sides})")
-            self.side_progress.setText("Recording" if s.state == RecordingState.RECORDING else "Complete" if s.state == RecordingState.STOPPED else "Paused")
+        if s.state in (
+            RecordingState.RECORDING,
+            RecordingState.PAUSED,
+            RecordingState.FLIP_COUNTDOWN,
+            RecordingState.STOPPED,
+        ):
+            self.side_indicator.setText(
+                f"Current Side: {s.side_letter()} ({s.current_side}/{s.total_sides})"
+            )
+            self.side_progress.setText(
+                "Recording"
+                if s.state == RecordingState.RECORDING
+                else "Complete"
+                if s.state == RecordingState.STOPPED
+                else "Paused"
+            )
         else:
             self.side_indicator.setText("Current Side: —")
             self.side_progress.setText("")
@@ -187,17 +201,25 @@ class RecordingTab(QWidget):
         elif state == RecordingState.RECORDING:
             self.record_btn.setText("Stop")
             self.record_btn.setEnabled(True)
-            self.rec_status.setText(f"Recording Side {s.side_letter() if s else 'A'}...")
-            self.rec_status.setStyleSheet("color: #ff4444; font-size: 12px; font-weight: bold;")
+            self.rec_status.setText(
+                f"Recording Side {s.side_letter() if s else 'A'}..."
+            )
+            self.rec_status.setStyleSheet(
+                "color: #ff4444; font-size: 12px; font-weight: bold;"
+            )
             self.countdown_label.setVisible(False)
             self.sides_spin.setEnabled(False)
         elif state == RecordingState.PAUSED:
             self.record_btn.setText("Stop")
-            self.rec_status.setText(f"Paused — Side {s.side_letter() if s else ''} complete")
+            self.rec_status.setText(
+                f"Paused — Side {s.side_letter() if s else ''} complete"
+            )
             self.rec_status.setStyleSheet("color: #ffaa00; font-size: 12px;")
         elif state == RecordingState.FLIP_COUNTDOWN:
             self.rec_status.setText("Flip the record...")
-            self.rec_status.setStyleSheet("color: #f5a623; font-size: 12px; font-weight: bold;")
+            self.rec_status.setStyleSheet(
+                "color: #f5a623; font-size: 12px; font-weight: bold;"
+            )
         elif state == RecordingState.STOPPED:
             self.record_btn.setText("Record")
             self.record_btn.setEnabled(True)
@@ -209,10 +231,10 @@ class RecordingTab(QWidget):
 
         self._update_side_display()
 
-    def show_countdown(self, seconds: int):
-        """Display countdown timer for record flip."""
+    def show_countdown(self, seconds: int, message: str = "Starting in"):
+        """Display a countdown before recording starts."""
         self.countdown_label.setVisible(True)
-        self.countdown_label.setText(f"Flip record — {seconds}s")
+        self.countdown_label.setText(f"{message} {seconds}s")
 
     def hide_countdown(self):
         self.countdown_label.setVisible(False)
@@ -251,7 +273,9 @@ class RecordingTab(QWidget):
             for side in sorted(side_tracklist, key=lambda s: (len(s), s)):
                 # Side header
                 header_item = QListWidgetItem(f"── Side {side} ──")
-                header_item.setFlags(header_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                header_item.setFlags(
+                    header_item.flags() & ~Qt.ItemFlag.ItemIsSelectable
+                )
                 header_item.setForeground(QColor("#f5a623"))
                 self.track_list.addItem(header_item)
 

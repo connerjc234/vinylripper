@@ -1,7 +1,9 @@
 import os
+import tempfile
 import threading
 
 import numpy as np
+import soundfile as sf
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
@@ -16,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from vinylripper import __version__
 from vinylripper.core.audio_processor import (
     convert_audio,
     embed_cover_art,
@@ -151,7 +154,11 @@ class MainWindow(QMainWindow):
         self._recorded_data = None
         self._album_metadata = None
         self._side = 1
-        self._temp_wav_path = None
+        # 24-bit WAV copy of the recording that exports read from
+        self._temp_wav_path: str | None = None
+        # True once "Process Full Recording" has been applied, so exports
+        # don't run the same restoration filters a second time
+        self._cleanup_applied = False
 
         self._side_check_timer = QTimer()
         self._side_check_timer.setInterval(3000)
@@ -505,20 +512,59 @@ class MainWindow(QMainWindow):
         self._cleanup_tab.preview_after_btn.setEnabled(has_data)
         self._cleanup_tab.process_btn.setEnabled(has_data)
 
-    def _get_restoration_level(self) -> int:
-        """Derive restoration level from CleanupAudioTab settings.
+    # ── Temp files & export options ───────────────────────────
 
-        Returns:
-            0 = None, 1 = Highpass only, 2 = Highpass + Declick
+    @staticmethod
+    def _new_temp_wav() -> str:
+        fd, path = tempfile.mkstemp(prefix="vinylripper-", suffix=".wav")
+        os.close(fd)
+        return path
+
+    def _discard_temp_wav(self) -> None:
+        if self._temp_wav_path:
+            try:
+                os.unlink(self._temp_wav_path)
+            except OSError:
+                pass
+        self._temp_wav_path = None
+        self._session.temp_wav_path = None
+
+    def _write_temp_wav(self, data: np.ndarray, sr: int) -> None:
+        """Replace the export source file with ``data`` as 24-bit WAV.
+
+        24-bit keeps the full resolution of the capture; exports used to be
+        truncated to 16-bit here regardless of the chosen format.
         """
-        settings = self._cleanup_tab.get_settings()
-        hp = settings.get("highpass", {}).get("enabled", False)
-        dc = settings.get("declick", {}).get("enabled", False)
-        if hp and dc:
-            return 2
-        if hp:
-            return 1
-        return 0
+        self._discard_temp_wav()
+        path = self._new_temp_wav()
+        sf.write(path, data, sr, subtype="PCM_24")
+        self._temp_wav_path = path
+        self._session.temp_wav_path = path
+
+    def _export_options(self) -> dict:
+        """Format, quality and restoration kwargs for convert/split exports."""
+        fmt = self._output_format_combo.currentText().lower()
+        quality_text = self._output_quality_combo.currentText()
+        opts: dict = {
+            "output_format": fmt,
+            "flac_compression": self._config.default_flac_compression,
+            "mp3_quality": self._config.default_mp3_quality,
+            "aiff_quality": "16",
+        }
+        if fmt == "flac" and quality_text.startswith("Compression"):
+            opts["flac_compression"] = int(quality_text.split()[1])
+        elif fmt == "mp3" and quality_text.startswith("VBR"):
+            opts["mp3_quality"] = quality_text.split()[1]
+        elif fmt == "aiff":
+            opts["aiff_quality"] = {"24-bit PCM": "24", "32-bit Float": "32f"}.get(
+                quality_text, "16"
+            )
+        # Apply the Cleanup tab's settings on export, unless they've already
+        # been applied to the audio with "Process Full Recording".
+        opts["restoration_settings"] = (
+            None if self._cleanup_applied else self._cleanup_tab.get_settings()
+        )
+        return opts
 
     # ── Cleanup Audio handlers ────────────────────────────────
 
@@ -540,20 +586,17 @@ class MainWindow(QMainWindow):
         if self._recorded_data is None or len(self._recorded_data) == 0:
             return
         import sounddevice as sd
-        import soundfile as sf
 
         sr = self._session.samplerate or 44100
         segment_dur = 5  # seconds
         n_samples = min(int(sr * segment_dur), len(self._recorded_data))
         segment = self._recorded_data[:n_samples]
 
-        import tempfile
-
         # Write the segment to a temp file
-        in_path = tempfile.mktemp(suffix=".wav")
-        out_path = tempfile.mktemp(suffix=".wav")
+        in_path = self._new_temp_wav()
+        out_path = self._new_temp_wav()
         try:
-            sf.write(in_path, segment, sr)
+            sf.write(in_path, segment, sr, subtype="PCM_24")
             settings = self._cleanup_tab.get_settings()
             from vinylripper.core.audio_processor import apply_restoration
 
@@ -576,19 +619,16 @@ class MainWindow(QMainWindow):
         """Apply restoration settings to the full recording in-place."""
         if self._recorded_data is None or len(self._recorded_data) == 0:
             return
-        import soundfile as sf
 
         sr = self._session.samplerate or 44100
         self._session.state = RecordingState.PROCESSING
         self._update_tabs_state()
         self._status.showMessage("Processing audio...")
 
-        import tempfile
-
-        in_path = tempfile.mktemp(suffix=".wav")
-        out_path = tempfile.mktemp(suffix=".wav")
+        in_path = self._new_temp_wav()
+        out_path = self._new_temp_wav()
         try:
-            sf.write(in_path, self._recorded_data, sr)
+            sf.write(in_path, self._recorded_data, sr, subtype="PCM_24")
             settings = self._cleanup_tab.get_settings()
             from vinylripper.core.audio_processor import apply_restoration
 
@@ -597,6 +637,10 @@ class MainWindow(QMainWindow):
                 self._recorded_data = processed_data
                 self._session.recorded_data = processed_data
                 self._session.state = RecordingState.STOPPED
+                # Exports read the temp WAV, so it must hold the processed
+                # audio — previously "Process" had no effect on exported files.
+                self._write_temp_wav(processed_data, sr)
+                self._cleanup_applied = True
 
                 # Reload into SplitTracksTab waveform
                 self._split_tab.set_full_audio(processed_data, sr)
@@ -609,9 +653,7 @@ class MainWindow(QMainWindow):
                     self._split_tab.waveform.set_split_markers([])
 
                 dur = len(processed_data) / sr
-                self._status.showMessage(
-                    f"Processing complete — {dur:.1f}s processed"
-                )
+                self._status.showMessage(f"Processing complete — {dur:.1f}s processed")
             else:
                 self._session.state = RecordingState.STOPPED
                 self._status.showMessage("Processing failed — check FFmpeg")
@@ -633,7 +675,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About VinylRipper",
-            "VinylRipper v1.0\n\n"
+            f"VinylRipper v{__version__}\n\n"
             "A desktop application for digitizing vinyl records.\n\n"
             "Record from your turntable, automatically split tracks,\n"
             "look up album metadata from Discogs, and export as\n"
@@ -800,10 +842,44 @@ class MainWindow(QMainWindow):
     # ── Recording control ──────────────────────────────────────
 
     def _toggle_recording(self):
-        if not self._recording:
+        if self._countdown_timer.isActive():
+            # Button reads "Cancel" during the countdown. Previously a second
+            # click restarted the whole start flow while the first countdown
+            # kept running, which could discard the audio recorded in between.
+            self._cancel_countdown()
+        elif not self._recording:
             self._start_recording()
         else:
             self._stop_recording()
+
+    def _start_countdown(self, seconds: int, status: str) -> None:
+        self._countdown_remaining = seconds
+        self._recording_tab.show_countdown(seconds)
+        self._recording_tab.record_btn.setText("Cancel")
+        self._countdown_timer.start()
+        self._status.showMessage(status)
+
+    def _cancel_countdown(self) -> None:
+        self._countdown_timer.stop()
+        self._recording_tab.hide_countdown()
+        self._recording_tab.record_btn.setText("Record")
+        params = self._pending_recording_data
+        self._pending_recording_data = None
+
+        # The needle-drop monitor was stopped for the countdown; restart it
+        # if we're still waiting for the needle.
+        if (
+            params
+            and self._session.state == RecordingState.CALIBRATED
+            and self._recorder is None
+        ):
+            self._recorder = Recorder(
+                device=params["device_name"],
+                samplerate=params["samplerate"],
+                channels=params["channels"],
+            )
+            self._recorder.start()
+        self._status.showMessage("Recording cancelled", 3000)
 
     def _start_recording(self):
         """Start recording workflow: search album, then begin countdown."""
@@ -849,11 +925,7 @@ class MainWindow(QMainWindow):
             "channels": min(2, device_info["max_input_channels"]),
         }
 
-        # Start 3-second countdown
-        self._countdown_remaining = 3
-        self._recording_tab.show_countdown(self._countdown_remaining)
-        self._countdown_timer.start()
-        self._status.showMessage(f"Starting in {self._countdown_remaining}...")
+        self._start_countdown(3, "Starting in 3...")
 
     def _countdown_tick(self):
         """Handle pre-recording countdown timer."""
@@ -882,14 +954,13 @@ class MainWindow(QMainWindow):
         if self._recorder:
             self._recorder.stop()
 
-        self._recorder = Recorder(
-            device=device_name, samplerate=sr, channels=ch
-        )
+        self._recorder = Recorder(device=device_name, samplerate=sr, channels=ch)
 
-        import tempfile
-
-        self._temp_wav_path = tempfile.mktemp(suffix=".wav")
-        self._session.temp_wav_path = self._temp_wav_path
+        # Previously each new recording created a new temp WAV and only the
+        # last one was deleted on exit, leaking hundreds of MB per take.
+        self._discard_temp_wav()
+        self._recorded_data = None
+        self._cleanup_applied = False
 
         self._recorder.start()
         self._recording = True
@@ -979,14 +1050,23 @@ class MainWindow(QMainWindow):
         self._recorder = None
 
         # Needle-detected auto-start uses a shorter countdown
-        self._countdown_remaining = 2
-        self._recording_tab.show_countdown(self._countdown_remaining)
-        self._countdown_timer.start()
-        self._status.showMessage("Needle detected — starting...")
+        self._start_countdown(2, "Needle detected — starting...")
 
     def _stop_recording(self):
+        """Stop button pressed while recording."""
+        self._finalize_recording()
+
+    def _finalize_recording(self):
+        """Stop capture and hand the recorded audio to the split/export UI.
+
+        Shared by the Stop button and automatic end-of-last-side detection.
+        """
+        # Stop every timer, including the post-flip grace timer: if it fired
+        # after a manual Stop it restarted side-end detection on a stopped
+        # recorder, which could flip the session back to PAUSED.
         self._side_check_timer.stop()
         self._countdown_timer.stop()
+        self._flip_grace_timer.stop()
         self._recording_tab.hide_countdown()
         self._stop_flip_monitoring()
 
@@ -996,6 +1076,7 @@ class MainWindow(QMainWindow):
 
         # Stop recorder (close stream — data is in session)
         self._recorder.stop()
+        overflows = self._recorder.overflow_count
         self._recording = False
         self._side = 1
 
@@ -1015,11 +1096,7 @@ class MainWindow(QMainWindow):
 
             self._split_tab.save_btn.setEnabled(True)
             sr = self._recorder.samplerate
-
-            import soundfile as sf
-
-            if self._temp_wav_path:
-                sf.write(self._temp_wav_path, data, sr)
+            self._write_temp_wav(data, sr)
 
             # Load audio into SplitTracksTab waveform
             self._split_tab.set_full_audio(data, sr)
@@ -1034,7 +1111,14 @@ class MainWindow(QMainWindow):
                     "Split & save available after Discogs search"
                 )
             dur = len(data) / sr
-            self._status.showMessage(f"Recorded {dur:.1f}s — ready to save")
+            msg = f"Recorded {dur:.1f}s — ready to save"
+            if overflows:
+                msg += (
+                    f" (warning: {overflows} audio dropout"
+                    f"{'s' if overflows != 1 else ''} — the input device "
+                    "couldn't keep up)"
+                )
+            self._status.showMessage(msg)
         else:
             self._recorded_data = None
             self._session.recorded_data = None
@@ -1048,6 +1132,9 @@ class MainWindow(QMainWindow):
     # ── Side detection ─────────────────────────────────────────
 
     def _check_side_end(self):
+        if not self._recording:
+            self._side_check_timer.stop()
+            return
         if self._recorder.is_paused:
             return
         recent = self._recorder.get_recent_audio(15)
@@ -1107,10 +1194,7 @@ class MainWindow(QMainWindow):
         Runs a lightweight recorder while the main recorder is paused.
         When audio is detected (needle drop), _on_flip_detected is called.
         """
-        sr = (
-            self._session.samplerate
-            or getattr(self._recorder, "samplerate", 44100)
-        )
+        sr = self._session.samplerate or getattr(self._recorder, "samplerate", 44100)
         device = getattr(self._recorder, "device", None)
         ch = min(getattr(self._recorder, "channels", 2), 1)
 
@@ -1143,70 +1227,12 @@ class MainWindow(QMainWindow):
         self._status.showMessage(f"Recording Side {self._session.side_letter()}...")
 
     def _finish_recording(self):
-        """Finalize multi-side recording."""
-        self._side_check_timer.stop()
-        self._countdown_timer.stop()
-        self._flip_grace_timer.stop()
-        self._stop_flip_monitoring()
-        self._recording_tab.hide_countdown()
-
-        # Drain remaining audio from recorder into session
-        for chunk in self._recorder.drain():
-            self._session.accumulate_audio(self._session.current_side, chunk)
-
-        # Stop recorder (close stream — data is in session)
-        self._recorder.stop()
-        self._recording = False
-        self._side = 1
-
-        self._check_tab.waveform.set_recording(False)
-        self._recording_tab.record_btn.setText("Record")
-        self._check_tab.device_combo.setEnabled(True)
-
-        # Get finalized audio with side gap handling
-        data = self._session.finalize_audio()
-
-        if data is not None and len(data) > 0:
-            self._recorded_data = data
-            self._session.recorded_data = data
-            self._session.state = RecordingState.STOPPED
-
-            self._split_tab.save_btn.setEnabled(True)
-            sr = self._recorder.samplerate
-
-            import soundfile as sf
-
-            if self._temp_wav_path:
-                sf.write(self._temp_wav_path, data, sr)
-
-            # Load audio into SplitTracksTab waveform
-            self._split_tab.set_full_audio(data, sr)
-
-            has_tracks = bool(self._album_metadata and self._album_metadata.tracklist)
-            self._split_tab.export_btn.setEnabled(has_tracks)
-            if has_tracks:
-                self._update_split_preview()
-                self._update_track_labels()
-            else:
-                self._split_tab.update_split_status(
-                    "Split & save available after Discogs search"
-                )
-            dur = len(data) / sr
-            self._status.showMessage(f"Recorded {dur:.1f}s — ready to save")
-        else:
-            self._recorded_data = None
-            self._session.recorded_data = None
-            self._session.state = RecordingState.IDLE
-            self._split_tab.save_btn.setEnabled(False)
-            self._split_tab.export_btn.setEnabled(False)
-            self._status.showMessage("No audio recorded")
-
-        self._update_tabs_state()
+        """Finalize multi-side recording after the last side ends."""
+        self._finalize_recording()
 
     def _end_flip_grace(self):
         """End the post-flip grace period and enable side-end detection."""
         self._side_check_timer.start()
-
 
     # ── Split preview / markers ────────────────────────────────
 
@@ -1297,7 +1323,7 @@ class MainWindow(QMainWindow):
             )
             return
 
-        sr = self._recorder.samplerate
+        sr = self._session.samplerate or self._recorder.samplerate
         split_points_sec = [p / sr for p in split_points]
 
         n_detected = len(split_points_sec) + 1
@@ -1350,28 +1376,7 @@ class MainWindow(QMainWindow):
                     }
                 )
 
-        # Get output format and quality
-        fmt = self._output_format_combo.currentText().lower()
-        quality_text = self._output_quality_combo.currentText()
-
-        if fmt == "flac":
-            flac_compression = (
-                int(quality_text.split()[1].split("(")[0])
-                if "Compression" in quality_text
-                else self._config.default_flac_compression
-            )
-            mp3_quality = "0"
-        elif fmt == "mp3":
-            flac_compression = 8
-            if "VBR" in quality_text:
-                mp3_quality = quality_text.split("VBR")[1].split("(")[0].strip()
-            else:
-                mp3_quality = self._config.default_mp3_quality
-        else:
-            flac_compression = 8
-            mp3_quality = "0"
-
-        restoration_level = self._get_restoration_level()
+        export_opts = self._export_options()
 
         # Run processing in background thread
         self._processing_thread = threading.Thread(
@@ -1381,10 +1386,7 @@ class MainWindow(QMainWindow):
                 dir_path,
                 split_points_sec,
                 track_metadata,
-                fmt,
-                flac_compression,
-                mp3_quality,
-                restoration_level,
+                export_opts,
             ),
             daemon=True,
         )
@@ -1409,45 +1411,15 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        fmt = self._output_format_combo.currentText().lower()
-        quality_text = self._output_quality_combo.currentText()
-
-        if fmt == "flac":
-            flac_compression = (
-                int(quality_text.split()[1].split("(")[0])
-                if "Compression" in quality_text
-                else self._config.default_flac_compression
-            )
-            mp3_quality = "0"
-        elif fmt == "mp3":
-            flac_compression = 8
-            if "VBR" in quality_text:
-                mp3_quality = quality_text.split("VBR")[1].split("(")[0].strip()
-            else:
-                mp3_quality = self._config.default_mp3_quality
-        else:
-            flac_compression = 8
-            mp3_quality = "0"
-
-        restoration_level = self._get_restoration_level()
+        export_opts = self._export_options()
+        temp_path = self._temp_wav_path
 
         self._split_tab.save_btn.setEnabled(False)
         self._status.showMessage("Converting...")
 
         def convert_thread():
             try:
-                temp_path = self._temp_wav_path
-                if not temp_path:
-                    self._save_finished.emit(False, "", "No temporary file available")
-                    return
-                success = convert_audio(
-                    temp_path,
-                    path,
-                    output_format=fmt,
-                    flac_compression=flac_compression,
-                    mp3_quality=mp3_quality,
-                    restoration_level=restoration_level,
-                )
+                success = convert_audio(temp_path, path, **export_opts)
                 if success and self._album_metadata and self._album_metadata.cover_data:
                     embed_cover_art(
                         path,
@@ -1478,10 +1450,7 @@ class MainWindow(QMainWindow):
         output_dir,
         split_points,
         track_metadata,
-        fmt,
-        flac_compression,
-        mp3_quality,
-        restoration_level,
+        export_opts,
     ):
         try:
             output_files = split_audio_ffmpeg(
@@ -1489,10 +1458,7 @@ class MainWindow(QMainWindow):
                 output_dir,
                 split_points,
                 track_metadata,
-                output_format=fmt,
-                flac_compression=flac_compression,
-                mp3_quality=mp3_quality,
-                restoration_level=restoration_level,
+                **export_opts,
                 progress_callback=self._on_track_progress,
                 cancel_event=self._cancel_event,
             )
@@ -1540,10 +1506,24 @@ class MainWindow(QMainWindow):
             )
 
     def closeEvent(self, event):
+        if self._recording:
+            ans = QMessageBox.question(
+                self,
+                "Recording in Progress",
+                "A recording is in progress. Quit and discard it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if ans != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+        for rec in (
+            self._recorder,
+            self._flip_monitor_recorder,
+            self._calibration_recorder,
+        ):
+            if rec is not None:
+                rec.stop()
         self._save_window_state()
-        if self._temp_wav_path and os.path.exists(self._temp_wav_path):
-            try:
-                os.unlink(self._temp_wav_path)
-            except OSError:
-                pass
+        self._discard_temp_wav()
         super().closeEvent(event)
