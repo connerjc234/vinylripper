@@ -117,9 +117,7 @@ class CheckLevelTab(QWidget):
             RecordingState.FLIP_COUNTDOWN,
         )
         self.waveform.set_recording(is_live)
-        self.device_combo.setEnabled(
-            state == RecordingState.IDLE
-        )
+        self.device_combo.setEnabled(state == RecordingState.IDLE)
 
     def clear_calibration(self):
         """Reset calibration display."""

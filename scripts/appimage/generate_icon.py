@@ -94,7 +94,9 @@ def generate_vinyl_icon(size: int) -> bytes:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate VinylRipper icon PNG")
     parser.add_argument("output", help="Output PNG path")
-    parser.add_argument("--size", type=int, default=256, help="Icon size (default: 256)")
+    parser.add_argument(
+        "--size", type=int, default=256, help="Icon size (default: 256)"
+    )
     args = parser.parse_args()
 
     png_data = generate_vinyl_icon(args.size)

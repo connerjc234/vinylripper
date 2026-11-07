@@ -653,9 +653,7 @@ class MainWindow(QMainWindow):
                     self._split_tab.waveform.set_split_markers([])
 
                 dur = len(processed_data) / sr
-                self._status.showMessage(
-                    f"Processing complete — {dur:.1f}s processed"
-                )
+                self._status.showMessage(f"Processing complete — {dur:.1f}s processed")
             else:
                 self._session.state = RecordingState.STOPPED
                 self._status.showMessage("Processing failed — check FFmpeg")
@@ -956,9 +954,7 @@ class MainWindow(QMainWindow):
         if self._recorder:
             self._recorder.stop()
 
-        self._recorder = Recorder(
-            device=device_name, samplerate=sr, channels=ch
-        )
+        self._recorder = Recorder(device=device_name, samplerate=sr, channels=ch)
 
         # Previously each new recording created a new temp WAV and only the
         # last one was deleted on exit, leaking hundreds of MB per take.
@@ -1198,10 +1194,7 @@ class MainWindow(QMainWindow):
         Runs a lightweight recorder while the main recorder is paused.
         When audio is detected (needle drop), _on_flip_detected is called.
         """
-        sr = (
-            self._session.samplerate
-            or getattr(self._recorder, "samplerate", 44100)
-        )
+        sr = self._session.samplerate or getattr(self._recorder, "samplerate", 44100)
         device = getattr(self._recorder, "device", None)
         ch = min(getattr(self._recorder, "channels", 2), 1)
 
@@ -1240,7 +1233,6 @@ class MainWindow(QMainWindow):
     def _end_flip_grace(self):
         """End the post-flip grace period and enable side-end detection."""
         self._side_check_timer.start()
-
 
     # ── Split preview / markers ────────────────────────────────
 
@@ -1525,8 +1517,11 @@ class MainWindow(QMainWindow):
             if ans != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
-        for rec in (self._recorder, self._flip_monitor_recorder,
-                    self._calibration_recorder):
+        for rec in (
+            self._recorder,
+            self._flip_monitor_recorder,
+            self._calibration_recorder,
+        ):
             if rec is not None:
                 rec.stop()
         self._save_window_state()

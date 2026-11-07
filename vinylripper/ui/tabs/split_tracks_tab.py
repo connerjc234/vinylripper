@@ -236,7 +236,9 @@ class SplitTracksTab(QWidget):
         has_markers = len(markers) > 0
         has_data = s is not None and s.recorded_data is not None
 
-        self.export_btn.setEnabled(has_data and has_markers and state != RecordingState.PROCESSING)
+        self.export_btn.setEnabled(
+            has_data and has_markers and state != RecordingState.PROCESSING
+        )
         self.save_btn.setEnabled(has_data)
 
     def update_split_status(self, text: str):

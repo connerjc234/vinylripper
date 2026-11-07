@@ -114,4 +114,6 @@ def clamp_marker(
 
     # Re-clamp after sibling adjustments
     pos = max(min_pos, min(pos, max_pos))
-    return Marker(position=pos, kind=marker.kind, pair_id=marker.pair_id, label=marker.label)
+    return Marker(
+        position=pos, kind=marker.kind, pair_id=marker.pair_id, label=marker.label
+    )
