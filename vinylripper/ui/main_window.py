@@ -1296,14 +1296,9 @@ class MainWindow(QMainWindow):
             title = track.get("title", "")
             label_text = f"{pos}  {title}" if title else pos
 
-            if i < len(split_points):
-                labels.append((split_points[i], label_text))
-            else:
-                # Last track — place at end of audio
-                total = (
-                    len(self._recorded_data) if self._recorded_data is not None else 0
-                )
-                labels.append((total, label_text))
+            # Track i starts at the previous split point (or the beginning)
+            start = 0 if i == 0 else split_points[min(i, len(split_points)) - 1]
+            labels.append((start, label_text))
 
         self._split_tab.waveform.set_track_labels(labels)
 

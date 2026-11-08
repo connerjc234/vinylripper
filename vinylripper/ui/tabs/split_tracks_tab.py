@@ -128,7 +128,7 @@ class SplitTracksTab(QWidget):
         self.save_btn.clicked.connect(self.save_requested.emit)
         btn_row.addWidget(self.save_btn)
 
-        self.export_btn = QPushButton("Split & Export")
+        self.export_btn = QPushButton("Split && Export")
         self.export_btn.setEnabled(False)
         self.export_btn.clicked.connect(self.split_export_requested.emit)
         btn_row.addWidget(self.export_btn)

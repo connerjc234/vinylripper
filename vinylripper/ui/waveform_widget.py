@@ -294,26 +294,22 @@ class WaveformWidget(QWidget):
                 )
                 painter.drawPolygon(poly)
 
-        # Draw track labels (from Discogs metadata overlay)
-        if self._track_labels and self._split_markers:
+        # Draw track labels (from Discogs metadata overlay). Each label sits at
+        # the start of its own segment and is elided to the segment's width,
+        # so labels follow the markers and never overlap.
+        if self._track_labels:
             painter.setPen(QColor(245, 166, 35))  # amber #f5a623
-            label_font = QFont("sans-serif", 9)
-            painter.setFont(label_font)
-
-            for i, marker_pos in enumerate(self._split_markers):
-                if i < len(self._track_labels):
-                    _, label = self._track_labels[i]
-                    x = self._sample_to_x(marker_pos, margin, plot_w)
-                    painter.drawText(x + 4, margin - 2, label)
-
-                # Also draw a label for the LAST segment (after last marker)
-                if i == len(self._split_markers) - 1 and i + 1 < len(
-                    self._track_labels
-                ):
-                    _, label = self._track_labels[i + 1]
-                    x = w - margin
-                    text_width = painter.fontMetrics().horizontalAdvance(label)
-                    painter.drawText(x - text_width - 4, margin - 2, label)
+            painter.setFont(QFont("sans-serif", 9))
+            fm = painter.fontMetrics()
+            plot_w = w - 2 * margin
+            bounds = [0, *self._split_markers, self._full_total_samples]
+            for i, (_, label) in enumerate(self._track_labels[: len(bounds) - 1]):
+                x0 = self._sample_to_x(bounds[i], margin, plot_w) + 4
+                x1 = self._sample_to_x(bounds[i + 1], margin, plot_w) - 4
+                if x1 - x0 < 16:
+                    continue
+                text = fm.elidedText(label, Qt.TextElideMode.ElideRight, x1 - x0)
+                painter.drawText(x0, margin - 2, text)
 
         self._draw_review_time_axis(painter, w, h, margin, plot_h, bottom_margin, total)
 
