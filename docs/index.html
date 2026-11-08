@@ -274,7 +274,7 @@
 
     /* ─── Shared ─── */
     section {
-      padding: 140px 28px;
+      padding: 96px 28px;
       position: relative;
       z-index: 1;
     }
@@ -471,7 +471,7 @@
       max-width: 460px;
     }
 
-    .hero-footnote {
+    .hero p.hero-footnote, .hero-footnote {
       font-size: 0.82rem;
       color: var(--text-muted);
       margin-top: 10px;
@@ -560,11 +560,12 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      position: relative;
     }
 
     .turntable-shell {
-      width: 320px;
-      height: 320px;
+      width: 380px;
+      height: 380px;
       perspective: 1200px;
       transform-style: preserve-3d;
       transition: transform 0.6s var(--spring);
@@ -824,52 +825,61 @@
       font-weight: 400;
     }
 
-    /* ─── How It Works (Z-Axis Cascade) ─── */
+    /* ─── How It Works (timeline) ─── */
     .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      position: relative;
+      counter-reset: step;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 50px;
+      left: 6%;
+      right: 6%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232, 171, 58, 0.45), transparent);
     }
 
     .step-shell {
       border-radius: var(--radius-outer);
-    }
-
-    .step-shell:nth-child(odd) {
-      transform: rotate(-0.8deg);
-      margin-left: -8px;
-    }
-
-    .step-shell:nth-child(even) {
-      transform: rotate(0.6deg);
-      margin-right: -8px;
-      margin-left: 40px;
+      position: relative;
     }
 
     .step {
       border-radius: var(--radius-inner);
       background: var(--chassis-elevated);
-      padding: 26px 30px;
+      padding: 28px 24px 30px;
       display: flex;
-      gap: 20px;
-      align-items: flex-start;
+      flex-direction: column;
+      gap: 18px;
+      height: 100%;
       box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04);
+      transition: background 0.5s var(--spring);
     }
+
+    .step-shell:hover .step { background: var(--chassis-raised); }
 
     .step-num {
       flex-shrink: 0;
-      width: 42px;
-      height: 42px;
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 50%;
-      background: linear-gradient(145deg, rgba(232, 171, 58, 0.12) 0%, rgba(232, 171, 58, 0.04) 100%);
+      background: var(--chassis);
+      box-shadow: 0 0 0 6px var(--chassis-elevated), 0 0 22px rgba(232, 171, 58, 0.18);
+      position: relative;
+      z-index: 1;
       color: var(--amber);
       font-family: 'Fraunces', serif;
       font-weight: 700;
       font-size: 1rem;
-      border: 1px solid rgba(232, 171, 58, 0.1);
+      border: 1px solid rgba(232, 171, 58, 0.35);
       font-variation-settings: 'SOFT' 50;
     }
 
@@ -982,7 +992,7 @@
     /* ─── Download Highlights ─── */
     .download-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
       margin-bottom: 32px;
     }
@@ -1227,18 +1237,325 @@
 
       .bento-card, .bento-card.wide, .bento-card.full, .bento-card.slim { grid-column: 1; }
 
-      .steps { gap: 8px; }
-
-      .step-shell:nth-child(odd),
-      .step-shell:nth-child(even) {
-        transform: none;
-        margin: 0;
-      }
-
-      .step { flex-direction: column; padding: 22px; }
+      .step { padding: 22px; }
 
       .tabs { width: 100%; justify-content: center; }
       .tab-btn { flex: 1; text-align: center; font-size: 0.75rem; padding: 8px 12px; }
+    }
+
+    /* ─── Hero floating chips ─── */
+    .float-chip {
+      position: absolute;
+      z-index: 12;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      background: rgba(18, 18, 22, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--hairline-strong);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      animation: floaty 7s ease-in-out infinite;
+    }
+    .float-chip b { color: var(--amber); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+    .float-chip .rec-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #ff5a4f; box-shadow: 0 0 10px #ff5a4f;
+      animation: ledBreathe 1.6s ease-in-out infinite;
+    }
+    .float-chip .mono { font-family: 'JetBrains Mono', monospace; color: var(--text-dim); font-size: 0.7rem; }
+    .chip-a { top: 6%; left: 2%; }
+    .chip-b { bottom: 12%; left: -2%; animation-delay: -2.5s; }
+    .chip-c { top: 44%; right: -4%; animation-delay: -5s; }
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* ─── Showcase (real app screenshot) ─── */
+    .showcase { padding-top: 0; padding-bottom: 40px; }
+    .showcase-stage { position: relative; }
+    .showcase-stage::before {
+      content: '';
+      position: absolute;
+      inset: 8% 10% -6%;
+      background: radial-gradient(ellipse at center, rgba(232, 171, 58, 0.22) 0%, transparent 65%);
+      filter: blur(40px);
+      pointer-events: none;
+    }
+    .app-window {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #141418;
+      border: 1px solid var(--hairline-strong);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 40px 100px -20px rgba(0, 0, 0, 0.85),
+        0 0 80px -30px rgba(232, 171, 58, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .app-window.reveal {
+      transform: perspective(1800px) rotateX(14deg) translateY(60px) scale(0.94);
+      transform-origin: 50% 100%;
+      transition: all 1.2s var(--spring);
+    }
+    .app-window.reveal.visible { transform: perspective(1800px) rotateX(0) translateY(0) scale(1); }
+    .window-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 16px;
+      background: linear-gradient(180deg, #1d1d23 0%, #17171c 100%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+    }
+    .window-bar i { width: 11px; height: 11px; border-radius: 50%; background: #3a3a44; }
+    .window-bar i:nth-child(1) { background: #ff5f57; }
+    .window-bar i:nth-child(2) { background: #febc2e; }
+    .window-bar i:nth-child(3) { background: #28c840; }
+    .window-title {
+      flex: 1;
+      text-align: center;
+      margin-right: 49px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .app-window img { display: block; width: 100%; height: auto; }
+    .showcase-caption {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .showcase-caption b { color: var(--text-dim); font-weight: 500; }
+
+    /* ─── Spec strip ─── */
+    .spec-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin-top: 72px;
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .spec { padding: 28px 24px; text-align: center; }
+    .spec + .spec { border-left: 1px solid var(--hairline); }
+    .spec strong {
+      display: block;
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #f4f7fb 0%, #e8ab3a 120%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-variation-settings: 'SOFT' 60;
+    }
+    .spec span { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ─── Bento visuals ─── */
+    .bento-card { transition: transform 0.6s var(--spring); }
+    .bento-card:hover { transform: translateY(-4px); }
+    .bento-card .db-shell { height: 100%; transition: background 0.5s var(--spring); }
+    .bento-card:hover .db-shell { background: rgba(232, 171, 58, 0.12); }
+    .bento-card.full .db-inner, .bento-card.wide .db-inner { padding: 32px 30px; }
+    .bento-viz { margin-top: auto; padding-top: 26px; width: 100%; }
+
+    .viz-wave {
+      height: 96px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 0 2px;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    }
+    .viz-wave i {
+      flex: 1;
+      height: var(--h, 40%);
+      min-height: 3px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, var(--amber) 0%, rgba(232, 171, 58, 0.35) 100%);
+      transform-origin: center;
+      animation: barPulse var(--t, 1.4s) ease-in-out var(--d, 0s) infinite alternate;
+    }
+    @keyframes barPulse { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+
+    .viz-tracks { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .viz-tracks li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hairline);
+      font-size: 0.76rem;
+      color: var(--text-dim);
+    }
+    .viz-tracks b, .chip b { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--amber); font-size: 0.72rem; }
+    .viz-tracks em { margin-left: auto; font-style: normal; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--text-muted); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--hairline-strong);
+      font-size: 0.74rem;
+      color: var(--text-dim);
+    }
+    .chip.hot { background: rgba(232, 171, 58, 0.08); border-color: rgba(232, 171, 58, 0.25); color: var(--text); }
+    .chip .on { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    kbd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--hairline-strong);
+      border-bottom-width: 2px;
+      color: var(--text);
+    }
+    .viz-gap { position: relative; height: 72px; }
+    .viz-gap i.quiet { height: 4%; animation: none; opacity: 0.4; }
+    .viz-gap .split-marker {
+      position: absolute;
+      top: -4px;
+      bottom: 0;
+      left: 50%;
+      border-left: 2px dashed var(--amber);
+    }
+    .viz-gap .split-marker::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -6px;
+      border: 5px solid transparent;
+      border-top: 7px solid var(--amber);
+    }
+
+    /* ─── CTA ─── */
+    .cta { padding-top: 40px; }
+    .cta-card { border-radius: var(--radius-outer); }
+    .cta-card .db-inner {
+      position: relative;
+      overflow: hidden;
+      padding: 72px 40px;
+      text-align: center;
+      background:
+        radial-gradient(ellipse 60% 80% at 50% 120%, rgba(232, 171, 58, 0.18) 0%, transparent 70%),
+        var(--chassis-elevated);
+    }
+    .cta-card .db-inner::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -250px;
+      width: 500px;
+      height: 500px;
+      margin-left: -250px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle closest-side, #050505 0 2.5%, var(--amber) 2.6% 24%, #c4871e 24% 28%, transparent 28.3%),
+        conic-gradient(from 0deg, rgba(255,255,255,0.0), rgba(255,255,255,0.07), rgba(255,255,255,0.0) 25%, rgba(255,255,255,0.0) 50%, rgba(255,255,255,0.07) 75%, rgba(255,255,255,0.0)),
+        repeating-radial-gradient(circle closest-side, #0b0b0d 0 2px, #19191c 2px 4px);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 -20px 80px rgba(232, 171, 58, 0.18);
+      opacity: 0.95;
+      animation: spin 14s linear infinite;
+      pointer-events: none;
+    }
+    .cta-card h2 {
+      position: relative;
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 14px;
+      font-variation-settings: 'SOFT' 70;
+    }
+    .cta-card p { position: relative; color: var(--text-dim); margin-bottom: 32px; }
+    .cta-card .hero-btns { position: relative; justify-content: center; margin-bottom: 220px; }
+
+    /* ─── Footer ─── */
+    footer .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    footer .footer-brand {
+      font-family: 'Fraunces', serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    footer .footer-brand svg { width: 22px; height: 22px; }
+    footer nav.footer-links {
+      position: static; transform: none; width: auto; min-width: 0;
+      padding: 0; background: none; border: 0; box-shadow: none;
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+      display: flex; gap: 22px; flex-wrap: wrap;
+    }
+    footer .footer-links a { color: var(--text-dim); font-size: 0.8rem; }
+    footer .footer-links a:hover { color: var(--amber); }
+
+    /* ─── FAQ layout ─── */
+    .faq-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 64px; align-items: start; }
+    .faq-head { position: sticky; top: 110px; }
+    .faq-layout .faq-list { max-width: none; margin: 0; }
+    .faq-head .section-sub { margin-bottom: 0; }
+    .faq-head a { color: var(--amber); text-decoration: none; border-bottom: 1px solid rgba(232, 171, 58, 0.4); }
+
+    /* ─── Responsive additions ─── */
+    @media (max-width: 1000px) {
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps::before { display: none; }
+      .spec-strip { grid-template-columns: 1fr 1fr; }
+      .spec:nth-child(3) { border-left: 0; }
+      .spec:nth-child(n+3) { border-top: 1px solid var(--hairline); }
+      .float-chip { display: none; }
+      .faq-layout { grid-template-columns: 1fr; gap: 32px; }
+      .faq-head { position: static; }
+      .turntable-shell { width: 240px; height: 240px; }
+    }
+    @media (min-width: 769px) and (max-width: 900px) {
+      .bento-card.full, .bento-card.slim:nth-child(6) { grid-column: span 12; }
+    }
+    @media (max-width: 768px) {
+      .steps { grid-template-columns: 1fr; }
+      .showcase { padding-top: 0; }
+      .window-bar { height: 28px; }
+      .window-bar i { width: 8px; height: 8px; }
+      .window-title { display: none; }
+      .app-window { border-radius: 12px; }
+      .spec { padding: 20px 10px; }
+      .cta-card .db-inner { padding: 56px 22px; }
+      footer .footer-inner { flex-direction: column; text-align: center; }
+      footer nav.footer-links { justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal, .app-window.reveal { opacity: 1; transform: none; filter: none; }
     }
   </style>
 </head>
@@ -1291,22 +1608,25 @@
           you<br>
           own
         </h1>
-        <p>Record your vinyl collection to high-res digital audio with automatic silence detection, Discogs metadata lookup (powered by the Discogs API, cataloging over 14 million releases), and multi-format export to FLAC, MP3, or AIFF. Free and open source under the MIT license.</p>
-        <p class="hero-footnote">Works with any USB turntable or audio interface — no proprietary hardware required.</p>
+        <p>Record your records in full 24-bit resolution, split them into tracks automatically, and tag every file with Discogs metadata and cover art. Free and open source.</p>
+        <p class="hero-footnote">Works with any USB turntable or audio interface — Linux, macOS &amp; Windows.</p>
         <div class="hero-btns">
           <a href="#install" class="btn btn-primary">
-            Get Started
+            Download free
             <span class="btn-arrow">
               <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </span>
           </a>
-          <a href="https://github.com/connerjc234/vinylripper/releases" class="btn btn-secondary" target="_blank" rel="noopener">
-            Downloads
+          <a href="https://github.com/connerjc234/vinylripper" class="btn btn-secondary" target="_blank" rel="noopener">
+            View on GitHub
           </a>
         </div>
       </div>
 
       <div class="hero-visual">
+        <div class="float-chip chip-a" aria-hidden="true"><span class="rec-dot"></span>Recording Side A <span class="mono">12:48</span></div>
+        <div class="float-chip chip-b" aria-hidden="true">FLAC <span class="mono">24-bit · 96 kHz</span></div>
+        <div class="float-chip chip-c" aria-hidden="true"><b>A3</b> Needle &amp; Thread</div>
         <div class="db-shell turntable-shell">
           <div class="db-inner turntable-inner">
             <div class="platter">
@@ -1331,6 +1651,27 @@
     </div>
   </section>
 
+  <!-- Showcase -->
+  <section class="showcase" id="showcase" aria-label="App screenshot">
+    <div class="container">
+      <div class="showcase-stage">
+        <figure class="app-window reveal">
+          <div class="window-bar" aria-hidden="true"><i></i><i></i><i></i><span class="window-title">VinylRipper — Split Tracks</span></div>
+          <img src="app-split-tracks.webp" width="2360" height="1400" loading="lazy" decoding="async"
+               alt="VinylRipper's Split Tracks view: a recorded album side split into five tracks, labelled A1 to A5 with titles from Discogs, above silence and gap sliders and Save and Split &amp; Export buttons.">
+        </figure>
+      </div>
+      <p class="showcase-caption"><b>Silence detection finds the gaps.</b> Discogs fills in the names. Drag a marker if it's off.</p>
+
+      <div class="spec-strip">
+        <div class="spec"><strong>24-bit</strong><span>lossless FLAC &amp; AIFF</span></div>
+        <div class="spec"><strong>14M+</strong><span>releases on Discogs</span></div>
+        <div class="spec"><strong>A1→B5</strong><span>real vinyl numbering</span></div>
+        <div class="spec"><strong>$0</strong><span>MIT licensed, no ads</span></div>
+      </div>
+    </div>
+  </section>
+
   <!-- Features -->
   <section id="features">
     <div class="container">
@@ -1345,92 +1686,81 @@
               <div class="bento-icon">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
               </div>
-              <h3>Live Recording</h3>
-              <p>Record directly from your sound card with real-time waveform display. Supports any input device at any sample rate. Watch your recording come to life as you play.</p>
+              <h3>Live recording</h3>
+              <p>Record straight from your turntable or interface and watch the waveform draw as the needle plays. Drop the needle and recording starts on its own; flip the record and it picks up side B.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="viz-wave"></div></div>
             </div>
           </div>
         </div>
-
         <div class="bento-card slim reveal reveal-d1">
           <div class="db-shell">
             <div class="db-inner">
               <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
               </div>
-              <h3>Discogs Metadata</h3>
-              <p>Look up artist, title, year, label, tracklist, and cover art. Tags your files automatically.</p>
+              <h3>Discogs metadata</h3>
+              <p>Search once and every track gets its artist, title, year, label and cover art.</p>
+              <div class="bento-viz" aria-hidden="true"><ul class="viz-tracks"><li><b>A1</b>Slow Burn on Elm Street<em>3:34</em></li><li><b>A2</b>Velvet Static<em>2:51</em></li><li><b>A3</b>Needle &amp; Thread<em>4:18</em></li></ul></div>
             </div>
           </div>
         </div>
-
-        <div class="bento-card slim reveal reveal-d2">
-          <div class="db-shell">
-            <div class="db-inner">
-              <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 15.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V3.5s-3-2-5-2-5 2-5 2-5 2-5 2z"/><path d="M2 20.5s3-2 5-2 5 2 5 2 3-2 5-2 5 2 5 2V8"/></svg>
-              </div>
-              <h3>Waveform Editor</h3>
-              <p>Drag split markers, undo/redo (Ctrl+Z/Y), zoom and pan. Minimap overview keeps you oriented.</p>
-            </div>
-          </div>
-        </div>
-
         <div class="bento-card slim reveal">
           <div class="db-shell">
             <div class="db-inner">
               <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12M9 9v6M15 9v6M20 6v12"/><path d="M12 4v16" stroke-dasharray="2 2"/></svg>
               </div>
-              <h3>Silence Detection</h3>
-              <p>Auto-detects gaps between tracks. Adjustable sensitivity and minimum gap for perfect splits.</p>
+              <h3>Silence detection</h3>
+              <p>Finds the quiet run-out between tracks and drops a split marker in each gap. Tune the sensitivity if a quiet passage fools it.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="viz-wave viz-gap"></div></div>
             </div>
           </div>
         </div>
-
         <div class="bento-card slim reveal reveal-d1">
           <div class="db-shell">
             <div class="db-inner">
               <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h3l3-8 4 16 4-12 3 4h3"/></svg>
               </div>
-              <h3>Vinyl Numbering</h3>
-              <p>Automatic A1/A2/B1/B2 positions from Discogs data. Sub-track support for medleys (A1.a, A1.b).</p>
+              <h3>Waveform editor</h3>
+              <p>Drag, add and remove markers, zoom in to the sample and undo anything.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="chips"><span class="chip"><kbd>Ctrl</kbd><kbd>Z</kbd> undo</span><span class="chip"><kbd>Del</kbd> marker</span><span class="chip">scroll to zoom</span></div></div>
             </div>
           </div>
         </div>
-
-        <div class="bento-card wide reveal reveal-d2">
+        <div class="bento-card slim reveal reveal-d2">
+          <div class="db-shell">
+            <div class="db-inner">
+              <div class="bento-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>
+              </div>
+              <h3>Vinyl numbering</h3>
+              <p>Tracks are named the way the sleeve names them, sub-tracks included.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="chips"><span class="chip hot"><b>A1</b></span><span class="chip hot"><b>A2</b></span><span class="chip"><b>B1</b></span><span class="chip"><b>B2</b></span><span class="chip"><b>B3.a</b></span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="bento-card slim reveal">
+          <div class="db-shell">
+            <div class="db-inner">
+              <div class="bento-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></svg>
+              </div>
+              <h3>Audio restoration</h3>
+              <p>Take out turntable rumble, clicks and surface hiss with FFmpeg filters. Hear a before and after before you commit.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="chips"><span class="chip hot"><span class="on"></span>Rumble</span><span class="chip hot"><span class="on"></span>Clicks</span><span class="chip">Hiss</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="bento-card full reveal reveal-d1">
           <div class="db-shell">
             <div class="db-inner">
               <div class="bento-icon">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <h3>Multi-Format Export</h3>
-              <p>Save as FLAC (0-8 compression), MP3 (VBR 0-9), or AIFF (16/24/32-bit). Embedded metadata and cover art included. Choose lossless archival or space-efficient — your call.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bento-card slim reveal reveal-d3">
-          <div class="db-shell">
-            <div class="db-inner">
-              <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>
-              </div>
-              <h3>Audio Restoration</h3>
-              <p>Highpass rumble filter (30Hz), declicking, and adaptive noise reduction via FFmpeg's industry-standard audio processing. Clean up pops, rumble, and surface noise before export.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bento-card slim reveal reveal-d4">
-          <div class="db-shell">
-            <div class="db-inner">
-              <div class="bento-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </div>
-              <h3>Persistent Settings</h3>
-              <p>JSON config at ~/.config/vinylripper with env var overrides. Everything remembered between sessions.</p>
+              <h3>Export your way</h3>
+              <p>Keep a lossless archive and a phone-sized copy. Every file carries its tags and embedded cover art.</p>
+              <div class="bento-viz" aria-hidden="true"><div class="chips"><span class="chip hot">FLAC <b>24-bit</b></span><span class="chip hot">AIFF <b>16 / 24 / 32f</b></span><span class="chip">MP3 <b>V0–V9</b></span><span class="chip">cover art embedded</span><span class="chip">tags written</span></div></div>
             </div>
           </div>
         </div>
@@ -1504,7 +1834,7 @@
               Windows
             </span>
             <p class="os-desc">Standalone .exe with bundled FFmpeg. Extract and double-click.</p>
-            <span class="os-badge">VinylRipper-Windows-x86_64.zip <span style="color:var(--text-muted);font-weight:400">⸱ 188 MB</span></span>
+            <span class="os-badge">VinylRipper-Windows-x86_64.zip <span style="color:var(--text-muted);font-weight:400">⸱ 154 MB</span></span>
           </div>
         </a>
         <a href="https://github.com/connerjc234/vinylripper/releases/download/v0.6.0/VinylRipper-macOS-x86_64.tar.gz" class="download-card db-shell reveal reveal-d1" download>
@@ -1603,9 +1933,12 @@
   <!-- FAQ -->
   <section id="faq">
     <div class="container">
-      <span class="eyebrow">FAQ</span>
-      <h2 class="section-title">Frequently asked questions</h2>
-      <p class="section-sub">Everything you need to know about getting started with VinylRipper.</p>
+      <div class="faq-layout">
+      <div class="faq-head">
+        <span class="eyebrow">FAQ</span>
+        <h2 class="section-title">Questions, answered</h2>
+        <p class="section-sub">Everything you need to know before you drop the needle. Still stuck? <a href="https://github.com/connerjc234/vinylripper/issues" target="_blank" rel="noopener">Open an issue</a>.</p>
+      </div>
 
       <div class="faq-list" itemscope="" itemtype="https://schema.org/FAQPage">
         <div class="faq-item db-shell" itemscope="" itemprop="mainEntity" itemtype="https://schema.org/Question">
@@ -1668,12 +2001,45 @@
           </div>
         </div>
       </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" aria-label="Download">
+    <div class="container">
+      <div class="cta-card db-shell reveal">
+        <div class="db-inner">
+          <h2>Give your records<br>a second life.</h2>
+          <p>Free for Linux, macOS and Windows. No account, no ads, no catch.</p>
+          <div class="hero-btns">
+            <a href="#install" class="btn btn-primary">
+              Download VinylRipper
+              <span class="btn-arrow"><svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+            </a>
+            <a href="https://github.com/connerjc234/vinylripper" class="btn btn-secondary" target="_blank" rel="noopener">Star on GitHub</a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- Footer -->
   <footer>
-    <p>Built with Python, PyQt6, and FFmpeg &nbsp;·&nbsp; <a href="https://github.com/connerjc234/vinylripper" target="_blank" rel="noopener">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/connerjc234/vinylripper/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></p>
+    <div class="footer-inner">
+      <span class="footer-brand">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45" fill="#050505" stroke="#e8ab3a" stroke-width="3"/><circle cx="50" cy="50" r="14" fill="#e8ab3a"/><circle cx="50" cy="50" r="5" fill="#050505"/></svg>
+        VinylRipper
+      </span>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="#features">Features</a>
+        <a href="#install">Download</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/connerjc234/vinylripper" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/connerjc234/vinylripper/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      </nav>
+      <p>Built with Python, PyQt6 &amp; FFmpeg</p>
+    </div>
   </footer>
 
   <audio id="scratch-sound" preload="auto">
@@ -1708,6 +2074,28 @@
         hamburger.setAttribute('aria-expanded', 'false');
         document.body.style.overflow = '';
       });
+    });
+
+    // Live-recording waveform bars
+    document.querySelectorAll('.viz-wave').forEach(el => {
+      const gap = el.classList.contains('viz-gap');
+      const n = gap ? 36 : (window.innerWidth < 600 ? 34 : 64);
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement('i');
+        if (gap && i >= 15 && i <= 20) { b.className = 'quiet'; el.appendChild(b); continue; }
+        // Each track swells and fades; the gap version shows two tracks
+        const k = gap ? (i < 15 ? (i + 0.5) / 15 : (i - 20.5) / 15) : (i + 0.5) / n;
+        const env = 0.35 + 0.65 * Math.sin(Math.PI * k) ** 0.7;
+        b.style.setProperty('--h', Math.round((0.25 + Math.random() * 0.75) * env * 100) + '%');
+        b.style.setProperty('--t', (0.6 + Math.random() * 0.9).toFixed(2) + 's');
+        b.style.setProperty('--d', (-Math.random() * 1.5).toFixed(2) + 's');
+        el.appendChild(b);
+      }
+      if (gap) {
+        const m = document.createElement('span');
+        m.className = 'split-marker';
+        el.appendChild(m);
+      }
     });
 
     // Scroll reveals
